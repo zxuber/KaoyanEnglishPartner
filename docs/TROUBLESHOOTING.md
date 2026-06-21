@@ -193,3 +193,32 @@ n. 痴迷，着魔
 
 WordJudgeServiceTest 新增 9 个测试用例，包含精确重现 bug 的 case。全部通过。
 
+---
+
+## 9. 判题日志过于精简，排查困难
+
+**日期**：2026-06-21
+**类型**：改进
+
+### 问题
+
+WordJudgeService 原本无日志，WordService 仅有一行汇总：
+`
+[Word] judge: word=obsession, meaning=n. u75f4u8ff7uff0cu7740u9b54, answer=u75f4u8ff7u7740u9b54u6267u5ff5u3002, correct=false
+`
+无法判断是哪个比对步骤失败、normalize 后文本长什么样、关键词提取了什么。
+
+### 改进
+
+WordJudgeService 增加 @Slf4j + 分步日志：
+- 入口：原始释义/答案 u2192 normalize 后文本
+- 关键词提取结果列表
+- 每步命中时打印具体规则（contains / keyword / synonym / edit-dist）
+- 全部未命中时打印 no match
+
+现在日志形如：
+`
+[Judge] raw meaning=[n. u75f4u8ff7uff0cu7740u9b54] normalized=[u75f4u8ff7u7740u9b54] | raw answer=[u75f4u8ff7u7740u9b54u6267u5ff5] normalized=[u75f4u8ff7u7740u9b54u6267u5ff5]
+[Judge] ans contains std -> true
+`
+
