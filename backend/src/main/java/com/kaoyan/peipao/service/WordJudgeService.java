@@ -1,5 +1,6 @@
 package com.kaoyan.peipao.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -8,6 +9,7 @@ import java.util.regex.Pattern;
  * 单词本地判断引擎
  * 优先本地判定（近义词+编辑距离），不调 LLM
  */
+@Slf4j
 @Service
 public class WordJudgeService {
 
@@ -63,29 +65,55 @@ public class WordJudgeService {
             Pattern.compile("\\b(vt|vi|n|adj|adv|prep|conj|pron|v|art|num|int|aux|abbr)\\.", Pattern.CASE_INSENSITIVE);
 
     public boolean judge(String standardMeaning, String userAnswer) {
-        if (userAnswer == null || userAnswer.trim().isEmpty()) return false;
+        if (userAnswer == null || userAnswer.trim().isEmpty()) {
+            log.info("[Judge] empty answer -> false");
+            return false;
+        }
 
         String std = normalize(standardMeaning);
         String ans = normalize(userAnswer);
+        log.info("[Judge] raw meaning=[{}] normalized=[{}] | raw answer=[{}] normalized=[{}]",
+                standardMeaning, std, userAnswer, ans);
 
-        // 1. 答案包含在标准释义中
-        if (std.contains(ans) || ans.contains(std)) return true;
-
-        // 2. 提取标准释义中的核心关键词（用原始释义，保留词性标注如 n./vt. 以便正确清除）
-        List<String> keywords = extractKeywords(standardMeaning);
-
-        // 3. 对每个关键词检查：精确匹配 / 近义词 / 编辑距离
-        for (String kw : keywords) {
-            if (ans.contains(kw)) return true;
-            if (isSynonym(kw, ans)) return true;
-            if (editDistanceSimilar(kw, ans)) return true;
+        // 1. direct contains check
+        if (std.contains(ans)) {
+            log.info("[Judge] std contains ans -> true");
+            return true;
+        }
+        if (ans.contains(std)) {
+            log.info("[Judge] ans contains std -> true");
+            return true;
         }
 
-        // 4. 整体编辑距离
-        if (editDistanceSimilar(std, ans)) return true;
+        // 2. keyword extraction
+        List<String> keywords = extractKeywords(standardMeaning);
+        log.info("[Judge] keywords: {}", keywords);
 
+        for (String kw : keywords) {
+            if (ans.contains(kw)) {
+                log.info("[Judge] keyword [{}] in answer -> true", kw);
+                return true;
+            }
+            if (isSynonym(kw, ans)) {
+                log.info("[Judge] synonym of [{}] in answer -> true", kw);
+                return true;
+            }
+            if (editDistanceSimilar(kw, ans)) {
+                log.info("[Judge] edit-dist on [{}] -> true", kw);
+                return true;
+            }
+        }
+
+        // 3. overall edit distance
+        if (editDistanceSimilar(std, ans)) {
+            log.info("[Judge] overall edit distance -> true");
+            return true;
+        }
+
+        log.info("[Judge] no match -> false");
         return false;
     }
+
 
     /** 标准化文本：先整体剥离词性标注，再逐字符去标点 */
     private String normalize(String s) {
@@ -101,7 +129,7 @@ public class WordJudgeService {
         // 先整体移除词性标注（与 normalize 保持一致）
         String cleaned = POS_PATTERN.matcher(meaning).replaceAll("");
         // 按分号、逗号、空格分割
-        String[] parts = cleaned.split("[，,;；\\s]+");
+        String[] parts = cleaned.split("[，,;；\\s/]+");
         for (String part : parts) {
             String kw = part.trim();
             if (kw.length() >= 2 && !keywords.contains(kw)) {
