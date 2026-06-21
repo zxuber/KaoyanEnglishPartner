@@ -4,5 +4,7 @@
 -- ============================================
 
 SOURCE migrations/001_create_user_table.sql;
+SOURCE migrations/002_create_word_tables.sql;
+SOURCE migrations/003_reassign_word_units.sql;
 
 SELECT 'All tables created successfully.' AS status;
