@@ -42,7 +42,7 @@ app:
     python-path: python
     script-path: scripts/stt.py
     timeout-seconds: 10
-    ffmpeg-path: ffmpeg/ffmpeg.exe
+    ffmpeg-path: ffmpeg
 
 # DeepSeek LLM
 deepseek:
