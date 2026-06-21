@@ -200,11 +200,13 @@ export default {
 
     stopVoice() {
       if (!this.isRecording) return;
+      clearInterval(this.countdownTimer);
       try { this.recorderManager.stop(); } catch (e) {}
     },
 
     async uploadAndRecognize(filePath) {
       this.uploading = true;
+      clearInterval(this.countdownTimer);
       console.log('[Voice] 开始上传录音:', filePath);
       try {
         const uploadRes = await new Promise((resolve, reject) => {
@@ -238,12 +240,14 @@ export default {
         } else if (!this.revealed) {
           const reason = data && data.error ? data.error : (data && !data.success ? '识别失败' : '未检测到语音内容');
           console.warn('[Voice] 识别失败:', reason);
+          this.startCountdown();
           uni.showToast({ title: reason, icon: 'none', duration: 2500 });
         }
       } catch (e) {
         this.uploading = false;
         console.error('[Voice] 异常:', e.message || e);
         if (!this.revealed) {
+          this.startCountdown();
           uni.showToast({ title: e.message || '网络错误，请重试', icon: 'none', duration: 2500 });
         }
       }
