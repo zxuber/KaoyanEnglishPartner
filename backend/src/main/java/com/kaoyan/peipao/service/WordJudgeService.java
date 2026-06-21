@@ -44,6 +44,10 @@ public class WordJudgeService {
         add("限制", "约束", "制约", "局限", "束缚");
         add("扩大", "扩展", "扩张", "拓宽", "放大");
         add("缩小", "减少", "缩减", "压缩", "精简");
+        add("难以理解的", "难懂的", "晦涩的", "深奥的", "费解的", "不明显的");
+        add("鲜为人知的", "晦涩的", "不为人知的", "模糊的", "难懂的");
+        add("掩盖", "遮掩", "遮挡", "隐瞒", "模糊", "使模糊");
+        add("隐晦", "模糊", "晦涩", "不清晰");
     }
 
     private static void add(String... words) {
@@ -98,6 +102,10 @@ public class WordJudgeService {
                 log.info("[Judge] synonym of [{}] in answer -> true", kw);
                 return true;
             }
+            if (partialOverlap(kw, ans)) {
+                log.info("[Judge] partial overlap [{}] <-> answer -> true", kw);
+                return true;
+            }
             if (editDistanceSimilar(kw, ans)) {
                 log.info("[Judge] edit-dist on [{}] -> true", kw);
                 return true;
@@ -137,6 +145,17 @@ public class WordJudgeService {
             }
         }
         return keywords;
+    }
+
+    /** 部分重叠匹配：如“难懂的”与“难以理解的”共享子串 */
+    private boolean partialOverlap(String keyword, String answer) {
+        if (keyword.length() < 3 || answer.length() < 2) return false;
+        // Check if any 2-char substring of keyword appears in answer
+        for (int i = 0; i <= keyword.length() - 2; i++) {
+            String sub = keyword.substring(i, i + 2);
+            if (answer.contains(sub)) return true;
+        }
+        return false;
     }
 
     /** 检查是否为近义词 */

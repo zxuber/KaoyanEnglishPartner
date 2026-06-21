@@ -53,4 +53,9 @@ class WordJudgeServiceTest {
     void testCompletelyWrong() {
         assertFalse(service.judge("n. 苹果", "香蕉橘子"));
     }
+
+    @Test
+    void testPartialOverlapObscure() {
+        assertTrue(service.judge("adj. 鲜为人知的；难以理解的 vt. 掩盖，使模糊，使隐晦", "晦涩的难懂的。"));
+    }
 }
