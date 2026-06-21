@@ -160,3 +160,36 @@ stt.py 的日志输出到 stderr，识别结果到 stdout。当 `ProcessBuilder.
 ### 对策
 
 不做额外处理。前端 `uploadAndRecognize` 中 `success: false` 时展示提示让用户重试。真机录音质量好，识别率会显著高于模拟器生成的 WebM 文件。
+
+---
+
+## 8. 词性标注污染导致判题误报
+
+**日期**：2026-06-21
+**类型**：Bug 修复
+
+### 现象
+
+用户回答「痴迷着魔执念」被判错误（correct=false），但标准释义为 n. 痴迷，着魔，用户答案明显正确。
+
+### 根因
+
+normalize() 两轮正则的执行顺序导致词性标注字母残留：
+
+n. 痴迷，着魔
+  → toLowerCase      → n. 痴迷，着魔
+  → 第一轮去中文标点+空格 → n.痴迷着魔
+  → 第二轮去英文标点     → n痴迷着魔   ← n. 变成 n，粘在中文前
+
+于是 std = n痴迷着魔，ans = 痴迷着魔执念：
+- std.contains(ans) → false
+- ans.contains(std) → false
+
+### 修复
+
+新增 POS_PATTERN 常量，匹配 12 种词性标注缩写（n. vt. vi. adj. adv. prep. conj. pron. v. art. num. int. aux. abbr.），在 normalize() 第一步整体移除。 extractKeywords() 同步替换。
+
+### 验证
+
+WordJudgeServiceTest 新增 9 个测试用例，包含精确重现 bug 的 case。全部通过。
+
