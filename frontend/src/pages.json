@@ -1,0 +1,59 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^u-(.*)": "uview-plus/components/u-$1/u-$1.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/onboarding/index",
+      "style": {
+        "navigationBarTitleText": "考研英语陪跑",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/word/index",
+      "style": {
+        "navigationBarTitleText": "单词速记"
+      }
+    },
+    {
+      "path": "pages/reading/index",
+      "style": {
+        "navigationBarTitleText": "阅读"
+      }
+    },
+    {
+      "path": "pages/writing/index",
+      "style": {
+        "navigationBarTitleText": "作文"
+      }
+    },
+    {
+      "path": "pages/exam/index",
+      "style": {
+        "navigationBarTitleText": "模考"
+      }
+    },
+    {
+      "path": "pages/mistake/index",
+      "style": {
+        "navigationBarTitleText": "误解本"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "考研英语陪跑",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F5F5F5"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "考研英语陪跑",
+  "appid": "wx16cae95889539ba6",
+  "description": "考研英语智能陪练小程序",
+  "versionName": "0.0.1",
+  "versionCode": "100",
+  "transformPx": false,
+  "mp-weixin": {
+    "appid": "wx16cae95889539ba6",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "postcss": true,
+      "minified": true
+    },
+    "usingComponents": true,
+    "permission": {
+      "scope.userLocation": {
+        "desc": "你的位置信息将用于小程序定位"
+      },
+      "scope.record": {
+        "desc": "用于单词速记语音录入"
+      }
+    }
+  }
+}

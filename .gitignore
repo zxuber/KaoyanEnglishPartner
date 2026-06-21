@@ -1,0 +1,28 @@
+﻿# Maven
+backend/target/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# IDE
+.idea/
+*.iml
+
+# Environment
+.env.local
+
+# Logs
+*.log
+stderr.log
+stdout.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+
+# FFmpeg binaries
+backend/ffmpeg/
