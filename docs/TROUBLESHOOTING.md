@@ -222,3 +222,27 @@ WordJudgeService 增加 @Slf4j + 分步日志：
 [Judge] ans contains std -> true
 `
 
+---
+
+## 10. WordProgress reviewInterval NPE + 前端无反馈
+
+**日期**：2026-06-21
+**类型**：Bug 修复
+
+### 现象
+
+语音识别正确，后端日志显示判对（correct=true），但前端报错 Cannot invoke java.lang.Integer.intValue() because getReviewInterval() is null。页面不显示对错结果，正确计数不增加。
+
+### 根因
+
+1. 新用户首次接触某单词时，WordProgress 记录不存在，代码 new 了一个新对象但只设了 status/mistakeCount/correctStreak，遗漏了 reviewInterval
+2. 判对路径调用 getNextInterval(wp.getReviewInterval())，Integer 自动拆箱为 int 时空指针
+3. 后端抛 500 → 前端 catch 块本地兜底判题，但 /words/new 返回的 WordVO 不含 meaning 字段，currentWord.meaning 为 undefined → 兜底也失败
+
+### 修复
+
+- WordService: 新建 WordProgress 时初始化 wp.setReviewInterval(0)
+- WordController: /words/new 的 WordVO 映射增加 .meaning(w.getMeaning())
+- 前端 catch 兜底: 用 currentWord.meaning 做简单 contains 判断
+- 前端判对反馈: uni.showToast 弹窗提示
+
