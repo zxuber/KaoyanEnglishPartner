@@ -1,6 +1,6 @@
 ﻿# PROJECT_CONTEXT.md - 项目状态看板
 
-> 最后更新：2026-06-21 下午（M3单词闪卡判题链路稳定：NPE修复 + 日志增强 + 前端反馈完善）
+> 最后更新：2026-06-21 晚（近义词引擎升级 + 词库 Unit 重分配 + PRD v1.2 单词判定三层防护架构）
 > 当前阶段：第一期 MVP 开发中（M3 单词闪卡进行中）
 
 ---
@@ -21,7 +21,7 @@
 
 | 文档 | 路径 | 状态 |
 |------|------|:--:|
-| 产品需求文档 (PRD v1.1) | `docs/PRD.md` | ✅ 完成 |
+| 产品需求文档 (PRD v1.2) | `docs/PRD.md` | ✅ 完成 |
 | 项目宪法 (AGENTS.md) | `AGENTS.md` | ✅ 完成 |
 | 项目状态看板 | `docs/PROJECT_CONTEXT.md` | ✅ 完成 |
 | 开发计划 | `docs/DEVELOPMENT_PLAN.md` | ✅ 完成 |
@@ -41,6 +41,7 @@
 | LLM | DeepSeek-V3 (OpenAI 兼容 API) | 2026-06-20 |
 | **语音识别** | **百度 ASR**（免费 5万次/天）+ ffmpeg 自动转码 | 2026-06-21 |
 | 风险策略 | 版权/一致性 → 用户已确认接受 | 2026-06-20 |
+| **单词判定引擎** | **同义词词林（cilin.txt, 17,752 组）+ 四级本地检查** | 2026-06-21 |
 
 ### 2.3 环境准备
 
@@ -51,11 +52,12 @@
 | uni-app 脚手架初始化 | ✅ 完成 |
 | SpringBoot 项目初始化 | ✅ 完成 |
 | MySQL 数据库建库 (`kaoyan_peipao`) | ✅ 完成 |
-| 词库数据导入 (6547 词) | ✅ 完成 |
+| 词库数据导入 (6,547 词) | ✅ 完成 |
+| 词库 Unit 重分配 (必考词 26 单元 + 基础词 29 单元) | ✅ 完成 |
 | DeepSeek API Key | ✅ 完成 |
 | 百度 ASR API Key（免费额度） | ✅ 完成 |
 
-| ffmpeg | ✅ 完成 | 音频转码（WebM→WAV），需手动安装到 `backend/ffmpeg/`
+| ffmpeg | ✅ 完成 | 音频转码（WebM→WAV），路径配置 `ffmpeg-path: ffmpeg`（兼容 Win/Mac/Linux）
 | Git 仓库初始化 | ✅ 完成 | 首次提交 6c3be70，含 .gitignore
 
 ### 2.4 模块完成情况
@@ -87,6 +89,12 @@
   → Java SpeechService → Python stt.py → 百度 ASR API
   → 返回中文文本 → 自动提交 /words/check 判题 → 下一词
 ```
+
+### 单词判定引擎
+- 四级本地检查：直接包含 → 关键词匹配 → **近义词映射（同义词词林）** → 编辑距离
+- 同义词词林 (`cilin.txt`)：从 6,547 条词库释义自动归纳，17,752 组同义词，覆盖名词/动词/形容词
+- 加载方式：`@PostConstruct` 启动时从 classpath 加载到 `Map<String, Set<String>>`，查询 O(1)
+- LLM fallback 条件：仅当本地四级全挂 + 零字重叠时触发（详见 PRD §3.2.5）
 
 ### 已知限制
 - 语音识别需要真机（模拟器 RecorderManager 不可用）
