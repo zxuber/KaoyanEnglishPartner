@@ -322,13 +322,17 @@ export default {
           this.correctCount++;
           this.feedbackType = 'correct';
           this.correctMeaning = '';
+          uni.showToast({ title: '✔ 正确', icon: 'none', duration: 800 });
         } else {
           this.feedbackType = 'wrong';
           this.correctMeaning = (res.data && res.data.meaning) || this.currentWord.meaning || '';
         }
       } catch (e) {
+        console.error('[Word] backend error:', e);
         const meaning = this.currentWord.meaning || '';
-        if (meaning && answer && (meaning.includes(answer) || answer.includes(meaning.substring(0, 1)))) {
+        // Simple fallback: check if answer contains any part of the meaning
+        const ans = (answer || '').replace(/[，。；：、！？\s]+/g, '');
+        if (meaning && ans && meaning.includes(ans)) {
           this.correctCount++;
           this.feedbackType = 'correct';
           this.correctMeaning = '';

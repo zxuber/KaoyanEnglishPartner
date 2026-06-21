@@ -71,6 +71,7 @@ public class WordService {
             wp.setStatus("learning");
             wp.setMistakeCount(0);
             wp.setCorrectStreak(0);
+            wp.setReviewInterval(0);
         }
 
         if (correct) {

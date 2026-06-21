@@ -29,7 +29,7 @@ public class WordController {
     public Result<List<WordVO>> getNewWords(@RequestParam Long userId, @RequestParam(defaultValue = "1") int unit) {
         List<Word> words = wordService.getNewWords(userId, unit);
         List<WordVO> vos = words.stream().map(w -> WordVO.builder()
-                .id(w.getId()).word(w.getWord())
+                .id(w.getId()).word(w.getWord()).meaning(w.getMeaning())
                 .unit(w.getUnit()).page(w.getPage()).build()).collect(Collectors.toList());
         return Result.ok(vos);
     }
