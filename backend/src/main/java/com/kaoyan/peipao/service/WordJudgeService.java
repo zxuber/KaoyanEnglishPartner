@@ -1,59 +1,52 @@
 package com.kaoyan.peipao.service;
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 
 /**
  * 单词本地判断引擎
- * 优先本地判定（近义词+编辑距离），不调 LLM
+ * 四级本地检查：直接包含 → 关键词匹配 → 近义词映射（同义词词林）→ 编辑距离
  */
 @Slf4j
 @Service
 public class WordJudgeService {
 
-    /** 常用近义词映射 */
-    private static final Map<String, Set<String>> SYNONYM_MAP = new HashMap<>();
-    static {
-        add("放弃", "抛弃", "遗弃", "丢弃", "舍弃", "摒弃");
-        add("重要的", "重大的", "关键的", "主要的", "显著的");
-        add("分析", "剖析", "解析", "研究");
-        add("方法", "方式", "途径", "手段", "办法");
-        add("增加", "增长", "提升", "提高", "增强", "增多");
-        add("减少", "降低", "下降", "削减", "缩小", "减弱");
-        add("显示", "表明", "说明", "揭示", "展现", "呈现");
-        add("获得", "获取", "得到", "取得", "赢得");
-        add("提供", "给予", "供给", "供应", "赋予");
-        add("完成", "实现", "达成", "达到", "完成");
-        add("困难", "艰难", "艰巨", "困苦", "不易");
-        add("复杂的", "繁琐的", "错综复杂的");
-        add("快速的", "迅速的", "敏捷的", "高速的");
-        add("巨大的", "庞大的", "宏大的", "浩大的");
-        add("影响", "作用", "效果", "效应");
-        add("证据", "证明", "凭证", "依据");
-        add("争论", "争议", "辩论", "争执");
-        add("建立", "创立", "创建", "设立", "成立");
-        add("包含", "包括", "含有", "涵盖", "囊括");
-        add("表明", "表示", "显示", "说明", "暗示");
-        add("变化", "改变", "转变", "转换", "变更");
-        add("发展", "进展", "进步", "进化", "成长");
-        add("环境", "周围", "周边", "四周", "氛围");
-        add("特点", "特征", "特色", "特质", "特性");
-        add("提倡", "倡导", "主张", "拥护", "支持");
-        add("限制", "约束", "制约", "局限", "束缚");
-        add("扩大", "扩展", "扩张", "拓宽", "放大");
-        add("缩小", "减少", "缩减", "压缩", "精简");
-        add("难以理解的", "难懂的", "晦涩的", "深奥的", "费解的", "不明显的");
-        add("鲜为人知的", "晦涩的", "不为人知的", "模糊的", "难懂的");
-        add("掩盖", "遮掩", "遮挡", "隐瞒", "模糊", "使模糊");
-        add("隐晦", "模糊", "晦涩", "不清晰");
-    }
+    /** 同义词映射：从 cilin.txt 加载，word → 所有同义词集合 */
+    private final Map<String, Set<String>> synonymDict = new HashMap<>();
 
-    private static void add(String... words) {
-        Set<String> all = new HashSet<>(Arrays.asList(words));
-        for (String w : words) {
-            SYNONYM_MAP.computeIfAbsent(w, k -> new HashSet<>()).addAll(all);
+    @PostConstruct
+    public void loadSynonymDict() {
+        ClassPathResource resource = new ClassPathResource("cilin.txt");
+        int loaded = 0;
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                int eq = line.indexOf('=');
+                if (eq < 0) continue;
+                String wordsStr = line.substring(eq + 1).trim();
+                if (wordsStr.isEmpty()) continue;
+                String[] words = wordsStr.split("\\s+");
+                if (words.length < 2) continue;
+
+                Set<String> group = new HashSet<>(Arrays.asList(words));
+                for (String w : words) {
+                    synonymDict.computeIfAbsent(w, k -> new HashSet<>()).addAll(group);
+                }
+                loaded++;
+            }
+            log.info("[SynonymDict] loaded {} synonym groups, {} unique words",
+                    loaded, synonymDict.size());
+        } catch (Exception e) {
+            log.error("[SynonymDict] failed to load cilin.txt, synonym check will be disabled", e);
         }
     }
 
@@ -147,7 +140,7 @@ public class WordJudgeService {
         return keywords;
     }
 
-    /** 部分重叠匹配：如“难懂的”与“难以理解的”共享子串 */
+    /** 部分重叠匹配：如"难懂的"与"难以理解的"共享子串 */
     private boolean partialOverlap(String keyword, String answer) {
         if (keyword.length() < 3 || answer.length() < 2) return false;
         // Check if any 2-char substring of keyword appears in answer
@@ -158,12 +151,14 @@ public class WordJudgeService {
         return false;
     }
 
-    /** 检查是否为近义词 */
+    /** 检查是否为近义词（从同义词词林查找） */
     private boolean isSynonym(String keyword, String answer) {
-        Set<String> synonyms = SYNONYM_MAP.get(keyword);
+        Set<String> synonyms = synonymDict.get(keyword);
         if (synonyms != null) {
             for (String syn : synonyms) {
-                if (answer.contains(syn)) return true;
+                if (!syn.equals(keyword) && answer.contains(syn)) {
+                    return true;
+                }
             }
         }
         return false;
