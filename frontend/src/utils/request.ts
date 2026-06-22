@@ -4,6 +4,7 @@
  */
 
 import { getApiBaseUrl } from "@/config/api";
+import { getToken, clearSession } from "@/utils/session";
 
 const TIMEOUT = 15000;
 
@@ -21,7 +22,7 @@ interface ApiResponse<T = unknown> {
 }
 
 function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> {
-  const token = uni.getStorageSync("token") || "";
+  const token = getToken();
 
   return new Promise((resolve, reject) => {
     uni.request({
@@ -39,8 +40,8 @@ function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> 
         if (statusCode === 200) {
           resolve(data as ApiResponse<T>);
         } else if (statusCode === 401) {
-          uni.removeStorageSync("token");
-          uni.reLaunch({ url: "/pages/onboarding/index" });
+          clearSession();
+          uni.reLaunch({ url: "/pages/home/index" });
           reject(new Error("登录已过期"));
         } else {
           const msg = (data as ApiResponse).message || "请求失败";

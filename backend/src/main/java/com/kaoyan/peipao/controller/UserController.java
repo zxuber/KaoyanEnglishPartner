@@ -3,6 +3,8 @@ package com.kaoyan.peipao.controller;
 import com.kaoyan.peipao.common.Result;
 import java.util.Map;
 import com.kaoyan.peipao.dto.request.OnboardingRequest;
+import com.kaoyan.peipao.dto.request.UpdateRecentTrainingRequest;
+import com.kaoyan.peipao.dto.response.DashboardResponse;
 import com.kaoyan.peipao.dto.response.PlanResponse;
 import com.kaoyan.peipao.service.UserService;
 import jakarta.validation.Valid;
@@ -24,6 +26,26 @@ public class UserController {
     public Result<Map<String, Object>> onboarding(@Valid @RequestBody OnboardingRequest request) {
         Map<String, Object> result = userService.submitOnboarding(request);
         return Result.ok(result);
+    }
+
+    @GetMapping("/{id}/dashboard")
+    public Result<DashboardResponse> getDashboard(@PathVariable Long id) {
+        return Result.ok(userService.getDashboard(id));
+    }
+
+    @PostMapping("/{id}/checkin")
+    public Result<Void> checkin(@PathVariable Long id) {
+        userService.checkin(id);
+        return Result.ok(null);
+    }
+
+    @PostMapping("/{id}/recent-training")
+    public Result<Void> updateRecentTraining(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateRecentTrainingRequest request
+    ) {
+        userService.updateRecentTraining(id, request);
+        return Result.ok(null);
     }
 
     /**

@@ -182,6 +182,7 @@
 
 <script>
 import { post } from '@/utils/request';
+import { ensureAuthed } from '@/utils/auth';
 import { saveSession, getUserId, isOnboardingDone } from '@/utils/session';
 
 export default {
@@ -224,6 +225,13 @@ export default {
       return !!this.planStyle && !!this.biggestObstacle;
     },
   },
+  async onLoad() {
+    try {
+      await ensureAuthed();
+    } catch (e) {
+      uni.showToast({ title: '微信登录失败，请重试', icon: 'none' });
+    }
+  },
   onShow() {
     if (isOnboardingDone() && getUserId()) {
       uni.reLaunch({ url: '/pages/home/index' });
@@ -257,6 +265,7 @@ export default {
       this.loading = true;
       try {
         const res = await post('/users/onboarding', {
+          userId: getUserId(),
           examType: this.examType,
           targetScore: this.targetScore,
           remainingDays: this.remainingDays,
@@ -272,7 +281,7 @@ export default {
         });
         if (res.data && res.data.plan) {
           this.plan = res.data.plan;
-          if (res.data.userId) saveSession(res.data.userId);
+          if (res.data.userId) saveSession(res.data.userId, undefined, true);
         }
       } catch (e) {
         this.plan = {

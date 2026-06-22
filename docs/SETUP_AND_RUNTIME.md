@@ -36,9 +36,11 @@
 | `APP_STT_TIMEOUT_SECONDS` | STT 超时秒数 | `10` |
 | `WX_MINIAPP_APPID` | 微信小程序 AppID | 配置文件默认值 |
 | `WX_MINIAPP_SECRET` | 微信小程序 Secret | 配置文件默认值 |
-| `DEEPSEEK_API_KEY` | DeepSeek Key | 配置文件默认值 |
+| `DEEPSEEK_API_KEY` | DeepSeek Key | 空 |
 | `DEEPSEEK_BASE_URL` | DeepSeek Base URL | `https://api.deepseek.com` |
 | `DEEPSEEK_MODEL` | DeepSeek 模型名 | `deepseek-chat` |
+| `APP_JWT_SECRET` | JWT 签名密钥（Base64） | 本地开发默认值 |
+| `APP_JWT_EXPIRE_DAYS` | JWT 过期天数 | `30` |
 
 ### DeepSeek Key 策略
 
@@ -59,6 +61,26 @@ Windows PowerShell 示例：
 ```powershell
 $env:DEEPSEEK_API_KEY="your-real-key"
 ```
+
+### 微信登录与 JWT
+
+当前前后端已经接通正式登录主链路：
+
+- 前端：`uni.login()`
+- 后端：`POST /api/v1/auth/wx-login`
+- 返回：`token + userId + onboardingDone`
+
+说明：
+
+- 小程序真机或微信开发者工具下，首页会优先尝试微信登录
+- 登录成功后，本地保存 JWT，后续请求统一走 `Authorization: Bearer ...`
+- 如果 token 失效，前端会清空本地会话并重新回到首页触发登录
+
+如果要在新机器上稳定验证登录，请确保以下配置可用：
+
+- `WX_MINIAPP_APPID`
+- `WX_MINIAPP_SECRET`
+- Java 17 运行环境
 
 ### Python 兼容策略
 
@@ -211,5 +233,8 @@ $env:APP_STT_PYTHON_COMMAND="py"
 - `user` / `word` / `word_progress` 已建表
 - `word` 表已导入 6,547 条词库数据
 - SpringBoot 后端可正常启动
+- 学习画像后端已真实调用 DeepSeek 生成方案
+- 微信登录接口已可编译并接入首页主链路
 - 微信小程序前端可正常构建
+- `npm run type-check` 通过
 - `lan` 模式真机联调已验证通过

@@ -44,6 +44,9 @@ app:
     script-path: ${APP_STT_SCRIPT_PATH:scripts/stt.py}
     timeout-seconds: ${APP_STT_TIMEOUT_SECONDS:10}
     ffmpeg-path: ${APP_STT_FFMPEG_PATH:ffmpeg}
+  jwt:
+    secret: ${APP_JWT_SECRET:ZmFrZS1rYW95YW4tand0LXNlY3JldC1mb3ItbG9jYWwtZGV2ZWxvcG1lbnQtdXNlLW9ubHk=}
+    expire-days: ${APP_JWT_EXPIRE_DAYS:30}
 
 # DeepSeek LLM
 deepseek:

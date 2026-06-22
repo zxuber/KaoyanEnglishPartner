@@ -103,6 +103,7 @@
 <script>
 import { getSpeechApiUrl } from '@/config/api';
 import { get, post } from '@/utils/request';
+import { ensureAuthed } from '@/utils/auth';
 import { getUserId } from '@/utils/session';
 
 const COUNTDOWN = 5;
@@ -151,9 +152,15 @@ export default {
       return 'red';
     },
   },
-  onLoad() {
+  async onLoad() {
+    try {
+      await ensureAuthed();
+    } catch (e) {
+      uni.showToast({ title: '微信登录失败，请重试', icon: 'none' });
+    }
     this.userId = getUserId();
     this.initRecorder();
+    this.syncRecentTraining(0, 20);
   },
   onUnload() {
     clearInterval(this.countdownTimer);
@@ -293,6 +300,7 @@ export default {
 
     // ---- 开始一轮 ----
     async startRound(unit) {
+      this.syncRecentTraining(0, 20);
       try {
         const res = await get('/words/new', { userId: this.userId, unit });
         if (res.data && res.data.length > 0) {
@@ -371,6 +379,7 @@ export default {
       this.paused = false;
       if (this.currentIdx < this.words.length - 1) {
         this.currentIdx++;
+        this.syncRecentTraining(this.currentIdx, this.words.length);
         this.startCountdown();
       } else {
         this.finishRound();
@@ -380,6 +389,7 @@ export default {
     finishRound() {
       this.roundActive = false;
       this.roundFinished = true;
+      this.syncRecentTraining(this.words.length, this.words.length);
     },
 
     nextRound() {
@@ -389,6 +399,20 @@ export default {
 
     goHome() {
       uni.reLaunch({ url: '/pages/home/index' });
+    },
+    async syncRecentTraining(progressCurrent, progressTotal) {
+      if (!this.userId) return;
+      try {
+        await post(`/users/${this.userId}/recent-training`, {
+          module: '单词',
+          title: '单词主动回忆',
+          subtitle: progressTotal ? `第 ${Math.min(progressCurrent + 1, progressTotal)} / ${progressTotal} 题` : '看英文说中文',
+          page: '/pages/word/index',
+          progressCurrent,
+          progressTotal,
+          accent: '#0f766e',
+        });
+      } catch (e) {}
     },
 
     getTestWords() {

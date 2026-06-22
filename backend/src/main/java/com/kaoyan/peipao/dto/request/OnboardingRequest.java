@@ -10,6 +10,8 @@ import java.util.List;
 @Data
 public class OnboardingRequest {
 
+    private Long userId;
+
     @NotBlank(message = "请选择英语一或英语二")
     private String examType;
 
