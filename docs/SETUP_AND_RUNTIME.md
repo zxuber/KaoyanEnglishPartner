@@ -135,6 +135,12 @@ VITE_API_BASE_URL_TUNNEL=https://your-tunnel.example.com/api/v1
 - 延迟低
 - 最适合日常真机开发
 
+当前已验证示例：
+
+- 开发机 IP：`172.30.17.43`
+- 后端地址：`http://172.30.17.43:8080/api/v1`
+- 对应前端本地文件：`frontend/.env.local`
+
 ### 方案 B：内网穿透模式
 
 适用场景：手机不在同一局域网，或需要远程演示。
@@ -193,3 +199,17 @@ $env:APP_STT_PYTHON_COMMAND="py"
 4. `docs/PRD.md`
 
 这四份组合起来，已经能重建当前项目的运行模型、技术选型、联调方式和已知边界。
+
+---
+
+## 7. 当前运行结论（2026-06-22）
+
+截至 2026-06-22，项目已在当前 macOS 机器上验证通过：
+
+- MySQL 可启动并可连接
+- `kaoyan_peipao` 已建库
+- `user` / `word` / `word_progress` 已建表
+- `word` 表已导入 6,547 条词库数据
+- SpringBoot 后端可正常启动
+- 微信小程序前端可正常构建
+- `lan` 模式真机联调已验证通过

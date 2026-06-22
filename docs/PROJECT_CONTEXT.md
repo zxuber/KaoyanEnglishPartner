@@ -1,6 +1,6 @@
 ﻿# PROJECT_CONTEXT.md - 项目状态看板
 
-> 最后更新：2026-06-22 晚（跨平台配置结构落地 + 前端 API 三模式 local/lan/tunnel）
+> 最后更新：2026-06-22 晚（Mac 本地环境跑通 + 局域网真机联调验证通过）
 > 当前阶段：第一期 MVP 开发中（M3 单词闪卡进行中）
 
 ---
@@ -59,6 +59,8 @@
 | 跨平台配置结构（Win/Mac） | ✅ 完成 |
 | 前端 API 地址三模式（local/lan/tunnel） | ✅ 完成 |
 | DeepSeek Key 改为运行时环境变量注入 | ✅ 完成 |
+| macOS 本地环境验证（MySQL/后端/前端构建） | ✅ 完成 |
+| 局域网 LAN 真机联调验证 | ✅ 完成 |
 
 | ffmpeg | ✅ 完成 | 音频转码（WebM→WAV），路径配置 `ffmpeg-path: ffmpeg`（兼容 Win/Mac/Linux）
 | Git 仓库初始化 | ✅ 完成 | 首次提交 6c3be70，含 .gitignore
@@ -105,6 +107,14 @@
 - 后端需保持运行（`java -jar peipao-0.0.1-SNAPSHOT.jar`）
 - 真机模式下不能使用 `localhost`，需切换到 `lan` 或 `tunnel` 模式
 - 新机器如未设置 `DEEPSEEK_API_KEY`，LLM 相关功能不可用
+
+### 当前已验证环境（2026-06-22）
+
+- macOS 本机已完成 MySQL 重建、建库、建表、词库导入
+- `word` 表已导入 6,547 条数据
+- 后端已在本机成功启动并验证 `/api/v1/words/new`、`/api/v1/words/stats`
+- 前端已成功构建微信小程序产物
+- 局域网联调模式已验证通过，当前开发机 LAN 地址为 `172.30.17.43`
 
 ## 四、技术栈详情
 
