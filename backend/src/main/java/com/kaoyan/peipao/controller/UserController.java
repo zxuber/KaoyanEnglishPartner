@@ -17,7 +17,7 @@ public class UserController {
     private final UserService userService;
 
     /**
-     * M1: 提交入门问卷，生成专属学习方案
+     * M1: 提交学习画像，生成专属学习方案
      * POST /api/v1/users/onboarding
      */
     @PostMapping("/onboarding")

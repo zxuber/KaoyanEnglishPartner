@@ -28,9 +28,14 @@ public class UserService {
         profile.put("examType", request.getExamType());
         profile.put("targetScore", request.getTargetScore());
         profile.put("remainingDays", request.getRemainingDays());
-        profile.put("dailyHours", request.getDailyHours());
-        profile.put("weekendAvailable", request.getWeekendAvailable());
+        profile.put("currentScoreBand", request.getCurrentScoreBand());
         profile.put("englishLevel", request.getEnglishLevel());
+        profile.put("weakModules", request.getWeakModules());
+        profile.put("weekdayHours", request.getWeekdayHours());
+        profile.put("weekendHours", request.getWeekendHours());
+        profile.put("studyTimeSlot", request.getStudyTimeSlot());
+        profile.put("planStyle", request.getPlanStyle());
+        profile.put("biggestObstacle", request.getBiggestObstacle());
         profile.put("materials", request.getMaterials() != null ? request.getMaterials() : "无");
 
         log.info("Generating plan: target={}, days={}", request.getTargetScore(), request.getRemainingDays());
@@ -41,9 +46,18 @@ public class UserService {
         user.setExamType(request.getExamType());
         user.setTargetScore(request.getTargetScore());
         user.setRemainingDays(request.getRemainingDays());
-        user.setDailyHours(request.getDailyHours());
-        user.setWeekendAvailable(request.getWeekendAvailable());
+        user.setCurrentScoreBand(request.getCurrentScoreBand());
         user.setEnglishLevel(request.getEnglishLevel());
+        user.setWeekdayHours(request.getWeekdayHours());
+        user.setWeekendHours(request.getWeekendHours());
+        user.setStudyTimeSlot(request.getStudyTimeSlot());
+        user.setPlanStyle(request.getPlanStyle());
+        user.setBiggestObstacle(request.getBiggestObstacle());
+        try {
+            user.setWeakModules(objectMapper.writeValueAsString(request.getWeakModules()));
+        } catch (Exception e) {
+            user.setWeakModules("[]");
+        }
         try {
             user.setMaterials(objectMapper.writeValueAsString(request.getMaterials()));
         } catch (Exception e) {

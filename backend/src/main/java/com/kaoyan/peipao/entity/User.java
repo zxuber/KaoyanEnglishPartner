@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 用户表 - 对应 M1 入门问卷 + LLM 专属方案
+ * 用户表 - 对应 M1 学习画像 + LLM 专属方案
  */
 @Data
 @TableName("user")
@@ -28,27 +28,39 @@ public class User {
     /** 微信头像 URL */
     private String avatarUrl;
 
-    // ========== Q1-Q7 入门问卷答案 ==========
+    // ========== 学习画像 ==========
 
-    /** Q1: 英语一 / 英语二 */
     private String examType;
 
-    /** Q2: 目标分数 40-80 */
     private Integer targetScore;
 
-    /** Q3: 距考试剩余天数 */
     private Integer remainingDays;
 
-    /** Q4: 1h / 1.5h / 2h / 2.5h / 3h+ */
-    private String dailyHours;
+    /** 最近一次真题/模拟分数区间 */
+    private String currentScoreBand;
 
-    /** Q5: 有时间 / 没时间 / 不确定 */
-    private String weekendAvailable;
-
-    /** Q6: 四级未过 / 四级低分飘过 / 四级高分 / 六级已过 / 六级高分 */
+    /** 当前基础水平 */
     private String englishLevel;
 
-    /** Q7: 已有资料列表 JSON ["红宝书","刘晓燕系列"] */
+    /** 薄弱模块 JSON */
+    private String weakModules;
+
+    /** 工作日学习时长 */
+    private String weekdayHours;
+
+    /** 周末学习时长 */
+    private String weekendHours;
+
+    /** 最稳定学习时段 */
+    private String studyTimeSlot;
+
+    /** 计划风格 */
+    private String planStyle;
+
+    /** 当前最大卡点 */
+    private String biggestObstacle;
+
+    /** 已有资料列表 JSON */
     private String materials;
 
     // ========== LLM 生成方案 ==========

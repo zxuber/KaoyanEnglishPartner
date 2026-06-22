@@ -12,9 +12,14 @@ import java.util.List;
 @AllArgsConstructor
 public class PlanResponse {
     private String profile;
+    private List<String> diagnosisSummary;
     private List<ScoreItem> scoreBreakdown;
     private List<PhaseItem> phases;
-    private String dailySchedule;
+    private List<WeekFocusItem> weeklyFocus;
+    private String weekdayTemplate;
+    private String weekendTemplate;
+    private String riskTip;
+    private String catchUpAdvice;
     private List<MilestoneItem> milestones;
 
     @Data
@@ -45,5 +50,14 @@ public class PlanResponse {
     public static class MilestoneItem {
         private int day;
         private String description;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class WeekFocusItem {
+        private String label;
+        private String tasks;
     }
 }
