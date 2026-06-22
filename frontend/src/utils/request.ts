@@ -3,12 +3,13 @@
  * 统一管理 token、错误处理、超时
  */
 
-const BASE_URL = "http://localhost:8080/api/v1";
+import { getApiBaseUrl } from "@/config/api";
+
 const TIMEOUT = 15000;
 
 interface RequestOptions {
   url: string;
-  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   data?: Record<string, unknown>;
   header?: Record<string, string>;
 }
@@ -24,7 +25,7 @@ function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> 
 
   return new Promise((resolve, reject) => {
     uni.request({
-      url: BASE_URL + options.url,
+      url: getApiBaseUrl() + options.url,
       method: options.method || "GET",
       data: options.data,
       timeout: TIMEOUT,
@@ -68,7 +69,12 @@ export function put<T = unknown>(url: string, data?: Record<string, unknown>) {
 }
 
 export function patch<T = unknown>(url: string, data?: Record<string, unknown>) {
-  return request<T>({ url, method: "PATCH", data });
+  return request<T>({
+    url,
+    method: "POST",
+    data: { ...data, _method: "PATCH" },
+    header: { "X-HTTP-Method-Override": "PATCH" },
+  });
 }
 
 export function del<T = unknown>(url: string, data?: Record<string, unknown>) {

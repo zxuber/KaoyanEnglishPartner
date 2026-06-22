@@ -1,14 +1,15 @@
 ﻿server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
+  address: ${SERVER_ADDRESS:0.0.0.0}
 
 spring:
   application:
     name: kaoyan-peipao
 
   datasource:
-    url: jdbc:mysql://localhost:3306/kaoyan_peipao?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
+    url: ${DB_URL:jdbc:mysql://localhost:3306/kaoyan_peipao?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   autoconfigure:
@@ -33,23 +34,23 @@ mybatis-plus:
 # WxJava
 wx:
   miniapp:
-    appid: wx16cae95889539ba6
-    secret: d2476e40bc5799eee5106d1d77b738bb
+    appid: ${WX_MINIAPP_APPID:wx16cae95889539ba6}
+    secret: ${WX_MINIAPP_SECRET:d2476e40bc5799eee5106d1d77b738bb}
 
 # STT (Speech-to-Text)
 app:
   stt:
-    python-path: python
-    script-path: scripts/stt.py
-    timeout-seconds: 10
-    ffmpeg-path: ffmpeg
+    python-command: ${APP_STT_PYTHON_COMMAND:}
+    script-path: ${APP_STT_SCRIPT_PATH:scripts/stt.py}
+    timeout-seconds: ${APP_STT_TIMEOUT_SECONDS:10}
+    ffmpeg-path: ${APP_STT_FFMPEG_PATH:ffmpeg}
 
 # DeepSeek LLM
 deepseek:
-  api-key: sk-31de77140ec64523b8c2610b1ce7b97f
-  base-url: https://api.deepseek.com
-  model: deepseek-chat
-  timeout: 10000
+  api-key: ${DEEPSEEK_API_KEY:}
+  base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+  model: ${DEEPSEEK_MODEL:deepseek-chat}
+  timeout: ${DEEPSEEK_TIMEOUT:10000}
 
 # Knife4j
 springdoc:

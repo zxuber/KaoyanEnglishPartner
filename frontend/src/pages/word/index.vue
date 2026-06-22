@@ -101,11 +101,11 @@
 </template>
 
 <script>
+import { getSpeechApiUrl } from '@/config/api';
 import { get, post } from '@/utils/request';
 import { getUserId } from '@/utils/session';
 
 const COUNTDOWN = 5;
-const SPEECH_API = 'http://localhost:8080/api/v1/speech/recognize';
 
 export default {
   data() {
@@ -211,7 +211,7 @@ export default {
       try {
         const uploadRes = await new Promise((resolve, reject) => {
           uni.uploadFile({
-            url: SPEECH_API,
+            url: getSpeechApiUrl(),
             filePath: filePath,
             name: 'audio',
             timeout: 15000,

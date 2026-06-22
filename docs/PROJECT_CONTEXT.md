@@ -1,6 +1,6 @@
 ﻿# PROJECT_CONTEXT.md - 项目状态看板
 
-> 最后更新：2026-06-21 晚（近义词引擎升级 + 词库 Unit 重分配 + PRD v1.2 单词判定三层防护架构）
+> 最后更新：2026-06-22 晚（跨平台配置结构落地 + 前端 API 三模式 local/lan/tunnel）
 > 当前阶段：第一期 MVP 开发中（M3 单词闪卡进行中）
 
 ---
@@ -13,7 +13,7 @@
 | 项目类型 | 微信小程序（工具型） |
 | 目标用户 | 熟人用户群体（同学/朋友），英语基础薄弱的考研考生 |
 | 当前版本 | v0.1.0-dev |
-| 仓库地址 | 本地 `C:\Users\zxube\Documents\考研英语` |
+| 仓库地址 | 当前仓库为 Git 管理，多机协作，运行环境不再绑定固定本地路径 |
 
 ## 二、已完成事项
 
@@ -56,6 +56,9 @@
 | 词库 Unit 重分配 (必考词 26 单元 + 基础词 29 单元) | ✅ 完成 |
 | DeepSeek API Key | ✅ 完成 |
 | 百度 ASR API Key（免费额度） | ✅ 完成 |
+| 跨平台配置结构（Win/Mac） | ✅ 完成 |
+| 前端 API 地址三模式（local/lan/tunnel） | ✅ 完成 |
+| DeepSeek Key 改为运行时环境变量注入 | ✅ 完成 |
 
 | ffmpeg | ✅ 完成 | 音频转码（WebM→WAV），路径配置 `ffmpeg-path: ffmpeg`（兼容 Win/Mac/Linux）
 | Git 仓库初始化 | ✅ 完成 | 首次提交 6c3be70，含 .gitignore
@@ -100,6 +103,8 @@
 - 语音识别需要真机（模拟器 RecorderManager 不可用）
 - 百度 ASR 对纯人声识别效果好，环境噪音会影响准确率
 - 后端需保持运行（`java -jar peipao-0.0.1-SNAPSHOT.jar`）
+- 真机模式下不能使用 `localhost`，需切换到 `lan` 或 `tunnel` 模式
+- 新机器如未设置 `DEEPSEEK_API_KEY`，LLM 相关功能不可用
 
 ## 四、技术栈详情
 
@@ -123,19 +128,24 @@
 ## 六、工具启动命令
 
 ```bash
-# 启动 MySQL
-Start-Service -Name MySQL
+# macOS: 切到 Java 17 + Homebrew 工具链
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
+export PATH="$JAVA_HOME/bin:/opt/homebrew/bin:$PATH"
+export APP_STT_PYTHON_COMMAND=python3
 
 # 构建并启动后端
 cd backend
-mvn package -DskipTests
-java -jar target/peipao-0.0.1-SNAPSHOT.jar
+mvn spring-boot:run
 
-# 构建前端
+# 前端开发：本机 / 局域网 / 穿透 三模式由 .env.local 控制
 cd frontend
 npm run build:mp-weixin
 # 产出在 dist/build/mp-weixin/，用微信开发者工具导入
 ```
+
+Windows 启动方式、环境变量入口、真机联调三模式详见：
+
+- `docs/SETUP_AND_RUNTIME.md`
 
 ---
 

@@ -11,3 +11,14 @@ declare module "uview-plus" {
   const uviewPlus: any;
   export default uviewPlus;
 }
+
+interface ImportMetaEnv {
+  readonly VITE_API_MODE?: "local" | "lan" | "tunnel";
+  readonly VITE_API_BASE_URL_LOCAL?: string;
+  readonly VITE_API_BASE_URL_LAN?: string;
+  readonly VITE_API_BASE_URL_TUNNEL?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

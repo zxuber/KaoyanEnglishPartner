@@ -7,14 +7,17 @@ import org.springframework.stereotype.Service;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
 public class SpeechService {
 
-    @Value("${app.stt.python-path:python}")
-    private String pythonPath;
+    @Value("${app.stt.python-command:}")
+    private String pythonCommand;
 
     @Value("${app.stt.script-path:scripts/stt.py}")
     private String scriptPath;
@@ -46,16 +49,17 @@ public class SpeechService {
 
         try {
             Path scriptAbsolute = resolveScriptPath();
+            String resolvedPythonCommand = resolvePythonCommand();
 
             ProcessBuilder pb = new ProcessBuilder(
-                    pythonPath,
+                    resolvedPythonCommand,
                     scriptAbsolute.toAbsolutePath().toString(),
                     effectiveFile.getAbsolutePath()
             );
             pb.environment().put("PYTHONIOENCODING", "utf-8");
             pb.redirectErrorStream(true);
             log.info("[Speech] launching python: {} {} {}",
-                    pythonPath, scriptAbsolute, effectiveFile.getAbsolutePath());
+                    resolvedPythonCommand, scriptAbsolute, effectiveFile.getAbsolutePath());
 
             Process process = pb.start();
             log.info("[Speech] python pid={}", process.pid());
@@ -151,5 +155,41 @@ public class SpeechService {
         p = Paths.get("backend", scriptPath);
         if (Files.exists(p)) return p;
         return Paths.get(scriptPath);
+    }
+
+    private String resolvePythonCommand() {
+        if (pythonCommand != null && !pythonCommand.isBlank()) {
+            return pythonCommand.trim();
+        }
+
+        List<String> candidates = new ArrayList<>();
+        String osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        if (osName.contains("win")) {
+            candidates.add("python");
+            candidates.add("py");
+        } else {
+            candidates.add("python3");
+            candidates.add("python");
+        }
+
+        for (String candidate : candidates) {
+            if (isCommandAvailable(candidate)) {
+                return candidate;
+            }
+        }
+
+        throw new IllegalStateException("No usable Python command found. Set app.stt.python-command explicitly.");
+    }
+
+    private boolean isCommandAvailable(String command) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder(command, "--version");
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            boolean finished = process.waitFor(5, TimeUnit.SECONDS);
+            return finished && process.exitValue() == 0;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
