@@ -1,6 +1,6 @@
 # SETUP_AND_RUNTIME.md - 跨平台环境与联调说明
 
-> 最后更新：2026-06-22
+> 最后更新：2026-06-23
 > 用途：统一说明 macOS / Windows 下的运行前置条件、配置入口、真机联调方式。
 
 ---
@@ -107,7 +107,7 @@ $env:DEEPSEEK_API_KEY="your-real-key"
 |------|------|------|
 | `local` | 本机开发 / 模拟器调试 | `http://localhost:8080/api/v1` |
 | `lan` | 手机与电脑同一局域网真机调试 | `http://192.168.1.100:8080/api/v1` |
-| `tunnel` | 内网穿透 / 远程联调 | `https://your-tunnel.example.com/api/v1` |
+| `tunnel` | 公网 HTTPS（内网穿透 / 线上域名） | `https://api.peipaoenglish.cn/api/v1` |
 
 前端环境变量模板见：
 
@@ -119,8 +119,14 @@ $env:DEEPSEEK_API_KEY="your-real-key"
 VITE_API_MODE=lan
 VITE_API_BASE_URL_LOCAL=http://localhost:8080/api/v1
 VITE_API_BASE_URL_LAN=http://192.168.1.100:8080/api/v1
-VITE_API_BASE_URL_TUNNEL=https://your-tunnel.example.com/api/v1
+VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 ```
+
+发布构建补充：
+
+- `frontend/.env.production` 已预置线上地址 `https://api.peipaoenglish.cn/api/v1`
+- 执行 `npm run build:mp-weixin` 时，生产构建默认会读取该文件
+- 因此发布版小程序不需要再手工把 API 地址改回线上域名
 
 ### 运行时覆盖
 
@@ -163,13 +169,13 @@ VITE_API_BASE_URL_TUNNEL=https://your-tunnel.example.com/api/v1
 - 后端地址：`http://172.30.17.43:8080/api/v1`
 - 对应前端本地文件：`frontend/.env.local`
 
-### 方案 B：内网穿透模式
+### 方案 B：公网 HTTPS 模式
 
-适用场景：手机不在同一局域网，或需要远程演示。
+适用场景：手机不在同一局域网、需要远程演示，或准备直接接近线上环境调试。
 
 要求：
 
-1. 使用 `ngrok` / `frp` / `cpolar` 等工具暴露本机 8080
+1. 使用 `ngrok` / `frp` / `cpolar` 等工具暴露本机 8080，或直接使用线上域名
 2. 前端 `VITE_API_MODE=tunnel`
 3. `VITE_API_BASE_URL_TUNNEL` 指向公网 HTTPS 地址
 
@@ -177,6 +183,27 @@ VITE_API_BASE_URL_TUNNEL=https://your-tunnel.example.com/api/v1
 
 - 不依赖同一网络
 - 更接近线上访问链路
+
+当前线上 API：
+
+- `https://api.peipaoenglish.cn/api/v1`
+
+前端登录态恢复补充：
+
+- 首页在拉取 `/users/{id}/dashboard` 时，如果后端返回 `用户不存在`
+- 前端会自动清理本地会话：
+  - `kaoyan_token`
+  - `kaoyan_user_id`
+  - `kaoyan_onboarding_done`
+- 然后强制重新执行一次 `wx-login`
+- 这样在切换本地库 / 服务器库后，不会长期卡死在旧 `userId`
+
+微信公众平台需由你手工配置：
+
+- 业务域名 / request 合法域名：`https://api.peipaoenglish.cn`
+- 如果后续接文件上传下载，再补：
+  - uploadFile 合法域名：`https://api.peipaoenglish.cn`
+  - downloadFile 合法域名：`https://api.peipaoenglish.cn`
 
 ---
 

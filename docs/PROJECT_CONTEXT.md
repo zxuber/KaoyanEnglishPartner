@@ -1,7 +1,7 @@
 ﻿# PROJECT_CONTEXT.md - 项目状态看板
 
-> 最后更新：2026-06-22 晚（学习画像/首页/微信登录首条闭环已接通）
-> 当前阶段：第一期 MVP 开发中（M2/M4/M5 已落地首版）
+> 最后更新：2026-06-23（首台线上服务器、HTTP 反向代理、生产 API 地址接入）
+> 当前阶段：第一期 MVP 开发中（M2/M4/M5 已落地首版，开始上线准备）
 
 ---
 
@@ -28,6 +28,7 @@
 | 子智能体定义 | `subagents/*/AGENTS.md` | ✅ 完成 |
 | API 密钥记录 | `docs/API_KEYS.md` | ✅ 完成 |
 | 踩坑记录 | `docs/TROUBLESHOOTING.md` | ✅ 完成 |
+| 服务器发布手册 | `docs/DEPLOYMENT_RUNBOOK.md` | ✅ 完成 |
 
 ### 2.2 技术决策
 
@@ -61,6 +62,11 @@
 | DeepSeek Key 改为运行时环境变量注入 | ✅ 完成 |
 | macOS 本地环境验证（MySQL/后端/前端构建） | ✅ 完成 |
 | 局域网 LAN 真机联调验证 | ✅ 完成 |
+| 阿里云 Ubuntu 服务器初始化 | ✅ 完成 |
+| 生产 MySQL 建库建表与词库导入（6547 词） | ✅ 完成 |
+| `api.peipaoenglish.cn -> Nginx -> 127.0.0.1:8080` | ✅ 完成 |
+| 前端生产环境 API 地址配置 | ✅ 完成 |
+| 首页旧登录态自动恢复（用户不存在时自动重登） | ✅ 完成 |
 
 | ffmpeg | ✅ 完成 | 音频转码（WebM→WAV），路径配置 `ffmpeg-path: ffmpeg`（兼容 Win/Mac/Linux）
 | Git 仓库初始化 | ✅ 完成 | 首次提交 6c3be70，含 .gitignore
@@ -160,14 +166,15 @@
   - 后端 `/api/v1/auth/wx-login`
   - 返回 `JWT + userId + onboardingDone`
 - 学习画像提交时会优先写回当前登录用户，不再默认每次新建匿名用户
+- 首页拉取 dashboard 时，如果发现本地旧 `userId` 在当前环境不存在，前端会自动清 session 并重新执行 `wx-login`
 
 ## 七、近期计划
 
 **下一步动作**（按顺序）：
-1. 真机验证微信登录链路与首页跳转
-2. 真机测试 M3 单词闪卡语音识别
-3. 继续补首页与阅读/作文模块的数据承接
-4. 视验证结果补充登录态与最近训练细节
+1. 配置 HTTPS 证书并完成 `systemd` 托管
+2. 在微信公众平台补齐合法域名
+3. 真机验证线上域名下的微信登录链路与首页跳转
+4. 继续补首页与阅读/作文模块的数据承接
 
 ## 八、工具启动命令
 
@@ -181,15 +188,21 @@ export APP_STT_PYTHON_COMMAND=python3
 cd backend
 mvn spring-boot:run
 
-# 前端开发：本机 / 局域网 / 穿透 三模式由 .env.local 控制
+# 前端开发：本机 / 局域网 / 公网 HTTPS 三模式由环境文件控制
 cd frontend
 npm run build:mp-weixin
 # 产出在 dist/build/mp-weixin/，用微信开发者工具导入
 ```
 
+生产发布时默认读取：
+
+- `frontend/.env.production`
+- 当前线上 API：`https://api.peipaoenglish.cn/api/v1`
+
 Windows 启动方式、环境变量入口、真机联调三模式详见：
 
 - `docs/SETUP_AND_RUNTIME.md`
+- `docs/DEPLOYMENT_RUNBOOK.md`
 
 ---
 

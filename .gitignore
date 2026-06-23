@@ -11,6 +11,7 @@ frontend/dist/
 
 # Environment
 .env.local
+.local/
 
 # Logs
 *.log

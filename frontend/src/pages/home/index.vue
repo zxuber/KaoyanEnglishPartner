@@ -113,7 +113,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
 import { ensureAuthed } from '@/utils/auth';
-import { getUserId } from '@/utils/session';
+import { clearSession, getUserId } from '@/utils/session';
 import { get, post } from '@/utils/request';
 
 interface DashboardData {
@@ -143,6 +143,34 @@ const continuePercent = computed(() => {
   return total ? Math.min(100, Math.round((current / total) * 100)) : 0;
 });
 
+async function fetchDashboard(userId: number) {
+  const res = await get<DashboardData>(`/users/${userId}/dashboard`);
+  if (res && res.data) {
+    dashboard.value = res.data;
+    days.value = res.data.stats?.totalCheckins || days.value;
+  }
+}
+
+function isMissingUserError(error: unknown) {
+  return error instanceof Error && error.message.includes('用户不存在');
+}
+
+async function loadDashboard() {
+  let uid = getUserId();
+  if (!uid) return;
+
+  try {
+    await fetchDashboard(uid);
+  } catch (error) {
+    if (!isMissingUserError(error)) throw error;
+
+    clearSession();
+    const login = await ensureAuthed(true);
+    uid = login.userId;
+    await fetchDashboard(uid);
+  }
+}
+
 onMounted(async () => {
   try {
     await ensureAuthed();
@@ -161,11 +189,7 @@ onMounted(async () => {
 
   if (uid) {
     try {
-      const res = await get<DashboardData>(`/users/${uid}/dashboard`);
-      if (res && res.data) {
-        dashboard.value = res.data;
-        days.value = res.data.stats?.totalCheckins || days.value;
-      }
+      await loadDashboard();
     } catch (e) {}
   }
   loading.value = false;
