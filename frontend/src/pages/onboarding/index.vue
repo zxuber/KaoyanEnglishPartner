@@ -181,13 +181,14 @@
 </template>
 
 <script>
-import { post } from '@/utils/request';
+import { get, post } from '@/utils/request';
 import { ensureAuthed } from '@/utils/auth';
 import { saveSession, getUserId, isOnboardingDone } from '@/utils/session';
 
 export default {
   data() {
     return {
+      reviewMode: false,
       step: 1,
       loading: false,
       plan: null,
@@ -225,15 +226,27 @@ export default {
       return !!this.planStyle && !!this.biggestObstacle;
     },
   },
-  async onLoad() {
+  async onLoad(options) {
+    this.reviewMode = options?.review === '1';
     try {
       await ensureAuthed();
+      if (this.reviewMode && getUserId()) {
+        this.loading = true;
+        const res = await get(`/users/${getUserId()}/plan`);
+        if (res.data) {
+          this.plan = res.data;
+        } else {
+          uni.showToast({ title: '未找到已生成方案', icon: 'none' });
+        }
+      }
     } catch (e) {
-      uni.showToast({ title: '微信登录失败，请重试', icon: 'none' });
+      uni.showToast({ title: this.reviewMode ? '读取方案失败，请重试' : '微信登录失败，请重试', icon: 'none' });
+    } finally {
+      this.loading = false;
     }
   },
   onShow() {
-    if (isOnboardingDone() && getUserId()) {
+    if (!this.reviewMode && isOnboardingDone() && getUserId()) {
       uni.reLaunch({ url: '/pages/home/index' });
     }
   },

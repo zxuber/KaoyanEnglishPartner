@@ -23,10 +23,18 @@ interface ApiResponse<T = unknown> {
 
 function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> {
   const token = getToken();
+  const finalUrl = getApiBaseUrl() + options.url;
+
+  console.log("[API_REQUEST:start]", {
+    url: finalUrl,
+    path: options.url,
+    method: options.method || "GET",
+    hasToken: !!token,
+  });
 
   return new Promise((resolve, reject) => {
     uni.request({
-      url: getApiBaseUrl() + options.url,
+      url: finalUrl,
       method: options.method || "GET",
       data: options.data,
       timeout: TIMEOUT,
@@ -37,6 +45,11 @@ function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> 
       },
       success(res) {
         const { statusCode, data } = res;
+        console.log("[API_REQUEST:success]", {
+          url: finalUrl,
+          statusCode,
+          data,
+        });
         if (statusCode === 200) {
           resolve(data as ApiResponse<T>);
         } else if (statusCode === 401) {
@@ -50,6 +63,10 @@ function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> 
         }
       },
       fail(err) {
+        console.log("[API_REQUEST:fail]", {
+          url: finalUrl,
+          error: err,
+        });
         uni.showToast({ title: "网络开小差了，请重试", icon: "none" });
         reject(err);
       },

@@ -17,6 +17,7 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL_LOCAL?: string;
   readonly VITE_API_BASE_URL_LAN?: string;
   readonly VITE_API_BASE_URL_TUNNEL?: string;
+  readonly VITE_API_ALLOW_OVERRIDE?: "true" | "false";
 }
 
 interface ImportMeta {

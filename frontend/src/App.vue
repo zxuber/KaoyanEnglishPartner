@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { onLaunch } from "@dcloudio/uni-app";
+import { getApiRuntimeSummary } from "@/config/api";
 
 onLaunch(() => {
-  console.log("考研英语陪跑 App launched");
+  console.log("[APP_BOOT]", {
+    marker: "LAN_BUILD_2026_06_23_2035",
+    runtime: getApiRuntimeSummary(),
+  });
   // 不做任何跳页操作，交给各页面自己判断
 });
 </script>

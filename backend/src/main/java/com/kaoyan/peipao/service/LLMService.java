@@ -64,6 +64,62 @@ public class LLMService {
         return buildFallbackPlan(userProfile);
     }
 
+    public String generateReadingCoachReply(
+            String title,
+            String passage,
+            String stem,
+            String focus,
+            String standardAnswer,
+            String explanation,
+            String userAnswer,
+            int turn
+    ) {
+        String prompt = """
+                你是一个考研英语阅读一对一教练。你的任务不是直接公布答案，而是先根据用户的回答继续追问和引导。
+
+                【文章标题】
+                %s
+
+                【文章内容】
+                %s
+
+                【题目】
+                %s
+
+                【考查点】
+                %s
+
+                【标准答案】
+                %s
+
+                【答案解析】
+                %s
+
+                【用户当前回答】
+                %s
+
+                【当前轮次】
+                第 %d 轮
+
+                输出要求：
+                1. 如果是第 1 轮或第 2 轮，优先指出用户思路中的关键缺口，并只给一句追问式引导。
+                2. 不要直接说“正确答案是……”。
+                3. 语气像真人老师，简洁、明确、能继续问下去。
+                4. 只输出纯文本，不要输出 JSON，不要编号。
+                """.formatted(title, passage, stem, focus, standardAnswer, explanation, userAnswer, turn);
+
+        try {
+            return callDeepSeekText(prompt, "你是一个考研英语阅读教练。输出简短中文引导，不要输出 JSON。");
+        } catch (Exception e) {
+            log.warn("Reading coach fallback triggered: {}", e.getMessage());
+            return switch (turn) {
+                case 1 -> "先别急着选答案，你先说说题干问的是主旨、细节还是作者态度？对应信息大概落在哪一段？";
+                case 2 -> "继续往前推一步：把你锁定的那一句原文复述出来，再说它为什么能支撑你的判断。";
+                default -> "你已经接近答案了，回到题干关键词，再核对原文里最直接对应的句子。";
+            };
+        }
+    }
+
     private String buildPrompt(Map<String, Object> p) {
         String tpl = "你是考研英语辅导专家。请根据以下用户信息，生成一份专属学习方案。\n\n"
                 + "【用户信息】\n"
@@ -122,10 +178,14 @@ public class LLMService {
     }
 
     private String callDeepSeek(String prompt) throws Exception {
+        return callDeepSeekText(prompt, "你是一个考研英语辅导专家。只输出 JSON，不输出任何其他内容。");
+    }
+
+    private String callDeepSeekText(String prompt, String systemPrompt) throws Exception {
         var body = objectMapper.writeValueAsString(Map.of(
                 "model", model,
                 "messages", List.of(
-                        Map.of("role", "system", "content", "你是一个考研英语辅导专家。只输出 JSON，不输出任何其他内容。"),
+                        Map.of("role", "system", "content", systemPrompt),
                         Map.of("role", "user", "content", prompt)
                 ),
                 "temperature", 0.0,

@@ -112,6 +112,8 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
+import { onShow } from '@dcloudio/uni-app';
+import { getApiRuntimeSummary } from '@/config/api';
 import { ensureAuthed } from '@/utils/auth';
 import { clearSession, getUserId } from '@/utils/session';
 import { get, post } from '@/utils/request';
@@ -147,7 +149,8 @@ async function fetchDashboard(userId: number) {
   const res = await get<DashboardData>(`/users/${userId}/dashboard`);
   if (res && res.data) {
     dashboard.value = res.data;
-    days.value = res.data.stats?.totalCheckins || days.value;
+    days.value = res.data.stats?.totalCheckins || 0;
+    checkedIn.value = !!uni.getStorageSync('last_checkin_date') && uni.getStorageSync('last_checkin_date') === new Date().toDateString();
   }
 }
 
@@ -172,6 +175,10 @@ async function loadDashboard() {
 }
 
 onMounted(async () => {
+  console.log("[HOME] onMounted", {
+    runtime: getApiRuntimeSummary(),
+    cachedUserId: getUserId(),
+  });
   try {
     await ensureAuthed();
   } catch (e) {
@@ -195,20 +202,29 @@ onMounted(async () => {
   loading.value = false;
 });
 
+onShow(async () => {
+  const uid = getUserId();
+  if (!uid) return;
+  try {
+    await loadDashboard();
+  } catch (e) {}
+});
+
 function goPage(url: string) { uni.navigateTo({ url }); }
-function goOnboarding() { uni.navigateTo({ url: '/pages/onboarding/index' }); }
+function goOnboarding() { uni.navigateTo({ url: '/pages/onboarding/index?review=1' }); }
 async function doCheckin() {
   if (checkedIn.value) return;
   const uid = getUserId();
   if (uid) {
     try {
       await post(`/users/${uid}/checkin`, {});
+      await loadDashboard();
     } catch (e) {}
   }
   checkedIn.value = true;
   const today = new Date().toDateString();
   uni.setStorageSync('last_checkin_date', today);
-  days.value++;
+  days.value = dashboard.value.stats?.totalCheckins || (days.value + 1);
   uni.setStorageSync('continuous_days', String(days.value));
   uni.showToast({ title: '打卡成功', icon: 'success' });
 }

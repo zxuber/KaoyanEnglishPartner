@@ -113,12 +113,12 @@ $env:DEEPSEEK_API_KEY="your-real-key"
 
 - `frontend/.env.example`
 
-可在 `frontend/.env.local` 中自行填写：
+可在 `frontend/.env.local` 中自行填写。当前默认建议值是 `lan`，优先走同一局域网真机联调；如只在本机模拟器开发，再切回 `local`：
 
 ```dotenv
 VITE_API_MODE=lan
 VITE_API_BASE_URL_LOCAL=http://localhost:8080/api/v1
-VITE_API_BASE_URL_LAN=http://192.168.1.100:8080/api/v1
+VITE_API_BASE_URL_LAN=http://172.30.17.43:8080/api/v1
 VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 ```
 
@@ -127,6 +127,12 @@ VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 - `frontend/.env.production` 已预置线上地址 `https://api.peipaoenglish.cn/api/v1`
 - 执行 `npm run build:mp-weixin` 时，生产构建默认会读取该文件
 - 因此发布版小程序不需要再手工把 API 地址改回线上域名
+
+开发 / 发布目录区分：
+
+- `frontend/dist/dev/mp-weixin`：开发包，来自 `npm run dev:mp-weixin`，读取 `.env.local`
+- `frontend/dist/build/mp-weixin`：发布包，来自 `npm run build:mp-weixin`，读取 `.env.production`
+- 如果微信开发者工具误打开了 `dist/build/mp-weixin`，即使本地已经切到 `lan`，请求也仍会打到线上域名
 
 ### 运行时覆盖
 
@@ -141,6 +147,12 @@ VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 - `getApiRuntimeSummary()`
 
 便于后续做调试开关页，而不需要改业务代码。
+
+默认情况下该能力是关闭的：
+
+- `VITE_API_ALLOW_OVERRIDE=false`
+- 如果小程序本地缓存里残留了旧的 `apiBaseUrlOverride`，启动时会自动清掉
+- 只有显式把 `VITE_API_ALLOW_OVERRIDE=true` 打开时，运行时覆盖地址才会生效
 
 ---
 
@@ -251,7 +263,46 @@ $env:APP_STT_PYTHON_COMMAND="py"
 
 ---
 
-## 7. 当前运行结论（2026-06-22）
+## 7. 当前训练闭环补充
+
+### 首页刷新策略
+
+当前首页不仅在首次进入时拉取 dashboard，也会在以下时机自动刷新：
+
+- 页面 `onShow`
+- 打卡成功后
+
+这意味着：
+
+- 从单词页或阅读页返回首页后，`继续上次训练 / 已掌握单词 / 待回炉词 / 累计打卡` 会重新按后端真实数据刷新
+- 首页现在是训练状态汇总页，而不只是首次加载一次的静态展示页
+
+### 阅读 MVP 范围
+
+当前阅读模块是 MVP 首版，范围刻意压缩为一条可验证闭环：
+
+- 后端 `GET /api/v1/reading/article`
+- 后端 `POST /api/v1/reading/coach`
+- 前端阅读页流程：
+  - 先按自然段分页展示文章
+  - 再展示一道更接近真题形态的选择题（题干 + 4 个选项）
+  - 用户先说思路，而不是直接点答案提交
+  - AI 连续追问 1-2 轮
+  - 最后展示参考答案与解析
+
+当前使用固定文章与固定题目，目的是先验证“AI 教练式阅读陪练”的交互方式，再决定是否扩展为题库化结构。
+
+当前阅读输入方式：
+
+- 文字输入：最大 1000 字
+- 语音录入：单次最多 30 秒，结束后自动调用 `/speech/recognize` 转文字
+- 语音转写结果会自动回填到输入框，用户仍可手动补充或修改
+
+这样做的目的不是把阅读退化成普通刷题，而是保留真题选择题结构，同时强化“先表达判断路径”的 AI 教练式训练方式。
+
+---
+
+## 8. 当前运行结论（2026-06-22）
 
 截至 2026-06-22，项目已在当前 macOS 机器上验证通过：
 
@@ -265,3 +316,4 @@ $env:APP_STT_PYTHON_COMMAND="py"
 - 微信小程序前端可正常构建
 - `npm run type-check` 通过
 - `lan` 模式真机联调已验证通过
+- 当前默认先走 `lan` 模式做同网段真机联调；如果只想在本机开发，可临时切回 `local`

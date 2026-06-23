@@ -160,7 +160,8 @@ export default {
     }
     this.userId = getUserId();
     this.initRecorder();
-    this.syncRecentTraining(0, 20);
+    await this.loadStats();
+    this.syncRecentTraining(0, 20, false);
   },
   onUnload() {
     clearInterval(this.countdownTimer);
@@ -169,6 +170,18 @@ export default {
     }
   },
   methods: {
+    async loadStats() {
+      if (!this.userId) return;
+      try {
+        const res = await get('/words/stats', { userId: this.userId });
+        if (res.data) {
+          this.stats = {
+            mastered: res.data.mastered || 0,
+            total: res.data.total || 0,
+          };
+        }
+      } catch (e) {}
+    },
     // ---- 录音初始化 ----
     initRecorder() {
       try {
@@ -300,7 +313,7 @@ export default {
 
     // ---- 开始一轮 ----
     async startRound(unit) {
-      this.syncRecentTraining(0, 20);
+      this.syncRecentTraining(0, 20, false);
       try {
         const res = await get('/words/new', { userId: this.userId, unit });
         if (res.data && res.data.length > 0) {
@@ -339,6 +352,7 @@ export default {
           this.feedbackType = 'wrong';
           this.correctMeaning = (res.data && res.data.meaning) || this.currentWord.meaning || '';
         }
+        await this.loadStats();
       } catch (e) {
         console.error('[Word] backend error:', e);
         const meaning = this.currentWord.meaning || '';
@@ -368,6 +382,7 @@ export default {
           wordId: this.currentWord.id,
           unknown: true,
         });
+        await this.loadStats();
       } catch (e) {}
       setTimeout(() => this.nextWord(), 2000);
     },
@@ -379,7 +394,7 @@ export default {
       this.paused = false;
       if (this.currentIdx < this.words.length - 1) {
         this.currentIdx++;
-        this.syncRecentTraining(this.currentIdx, this.words.length);
+        this.syncRecentTraining(this.currentIdx, this.words.length, false);
         this.startCountdown();
       } else {
         this.finishRound();
@@ -389,7 +404,7 @@ export default {
     finishRound() {
       this.roundActive = false;
       this.roundFinished = true;
-      this.syncRecentTraining(this.words.length, this.words.length);
+      this.syncRecentTraining(this.words.length, this.words.length, true);
     },
 
     nextRound() {
@@ -400,13 +415,15 @@ export default {
     goHome() {
       uni.reLaunch({ url: '/pages/home/index' });
     },
-    async syncRecentTraining(progressCurrent, progressTotal) {
+    async syncRecentTraining(progressCurrent, progressTotal, completed = false) {
       if (!this.userId) return;
       try {
         await post(`/users/${this.userId}/recent-training`, {
           module: '单词',
-          title: '单词主动回忆',
-          subtitle: progressTotal ? `第 ${Math.min(progressCurrent + 1, progressTotal)} / ${progressTotal} 题` : '看英文说中文',
+          title: completed ? '单词训练已完成' : '单词主动回忆',
+          subtitle: completed
+            ? `本轮完成，正确 ${this.correctCount} / ${progressTotal || this.words.length || 20}`
+            : (progressTotal ? `第 ${Math.min(progressCurrent + 1, progressTotal)} / ${progressTotal} 题` : '看英文说中文'),
           page: '/pages/word/index',
           progressCurrent,
           progressTotal,
