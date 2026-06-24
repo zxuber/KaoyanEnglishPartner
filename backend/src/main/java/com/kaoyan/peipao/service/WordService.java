@@ -1,6 +1,7 @@
 package com.kaoyan.peipao.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kaoyan.peipao.entity.MistakeItem;
 import com.kaoyan.peipao.entity.Word;
 import com.kaoyan.peipao.entity.WordProgress;
 import com.kaoyan.peipao.mapper.WordMapper;
@@ -21,9 +22,12 @@ public class WordService {
     private final WordMapper wordMapper;
     private final WordProgressMapper wpMapper;
     private final WordJudgeService judgeService;
+    private final MistakeService mistakeService;
 
     /** 每轮词数 */
     private static final int BATCH_SIZE = 20;
+    /** 单轮最多混入的误解本单词数 */
+    private static final int MISTAKE_WORD_LIMIT = 10;
     /** 多少次连续正确后标记为 mastered */
     private static final int MASTERY_STREAK = 3;
     /** 艾宾浩斯间隔序列 */
@@ -35,14 +39,33 @@ public class WordService {
     public List<Word> getNewWords(Long userId, int unit) {
         List<Word> unitWords = wordMapper.selectByUnit(unit);
         List<Word> newWords = new ArrayList<>();
+        Set<Long> selectedIds = new LinkedHashSet<>();
         for (Word w : unitWords) {
             WordProgress wp = wpMapper.selectByUserAndWord(userId, w.getId());
             if (wp == null || "new".equals(wp.getStatus())) {
                 newWords.add(w);
-                if (newWords.size() >= BATCH_SIZE) break;
+                selectedIds.add(w.getId());
+                if (newWords.size() >= BATCH_SIZE - MISTAKE_WORD_LIMIT) break;
             }
         }
-        return newWords;
+
+        List<Word> mixedWords = new ArrayList<>(newWords);
+        List<Word> mistakeWords = resolveMistakeWords(userId, selectedIds);
+        mixedWords.addAll(mistakeWords);
+
+        List<Word> fillerPool = unitWords.stream()
+                .filter(word -> !selectedIds.contains(word.getId()))
+                .toList();
+        for (Word word : fillerPool) {
+            if (mixedWords.size() >= BATCH_SIZE) {
+                break;
+            }
+            mixedWords.add(word);
+            selectedIds.add(word.getId());
+        }
+
+        Collections.shuffle(mixedWords);
+        return mixedWords.size() > BATCH_SIZE ? mixedWords.subList(0, BATCH_SIZE) : mixedWords;
     }
 
     /**
@@ -137,5 +160,30 @@ public class WordService {
             if (INTERVALS[i] == current) return INTERVALS[i + 1];
         }
         return INTERVALS[INTERVALS.length - 1];
+    }
+
+    private List<Word> resolveMistakeWords(Long userId, Set<Long> selectedIds) {
+        List<String> mistakeWords = mistakeService.listActiveMistakeWords(userId, MISTAKE_WORD_LIMIT * 2);
+        if (mistakeWords.isEmpty()) {
+            return List.of();
+        }
+
+        List<Word> results = new ArrayList<>();
+        Set<String> usedTerms = new HashSet<>();
+        for (String mistakeWord : mistakeWords) {
+            if (results.size() >= MISTAKE_WORD_LIMIT) {
+                break;
+            }
+            if (!usedTerms.add(mistakeWord)) {
+                continue;
+            }
+            Word word = wordMapper.selectByWord(mistakeWord);
+            if (word == null || selectedIds.contains(word.getId())) {
+                continue;
+            }
+            results.add(word);
+            selectedIds.add(word.getId());
+        }
+        return results;
     }
 }

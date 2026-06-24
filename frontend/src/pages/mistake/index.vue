@@ -29,39 +29,51 @@
         <view
           v-for="item in items"
           :key="item.id"
-          class="flip-card"
-          :class="{ flipped: flippedMap[item.id] }"
-          @click="toggleFlip(item.id)"
+          class="swipe-row"
+          :class="{ opened: swipedId === item.id }"
+          @touchstart="onTouchStart(item.id, $event)"
+          @touchend="onTouchEnd(item.id, $event)"
         >
-          <view class="flip-card-inner">
-            <view class="flip-face front">
-              <view class="face-top">
-                <text class="face-tag">{{ activeTab === 'word' ? 'WORD' : 'SENTENCE' }}</text>
-                <text class="face-module">{{ item.sourceModule }}</text>
-              </view>
-              <text class="front-text" :class="{ sentence: activeTab === 'sentence' }">{{ item.sourceText }}</text>
-              <text class="face-tip">点击翻面</text>
-            </view>
+          <view class="swipe-main">
+            <view
+              class="flip-card"
+              :class="{ sentence: activeTab === 'sentence', flipped: flippedMap[item.id] }"
+              @click="toggleFlip(item.id)"
+            >
+              <view class="flip-card-inner">
+                <view class="flip-face front">
+                  <view class="face-top">
+                    <text class="face-tag">{{ activeTab === 'word' ? 'WORD' : 'SENTENCE' }}</text>
+                    <text class="face-module">{{ item.sourceModule }}</text>
+                  </view>
+                  <text class="front-text" :class="{ sentence: activeTab === 'sentence' }">{{ item.sourceText }}</text>
+                  <text class="face-tip">点击翻面</text>
+                </view>
 
-            <view class="flip-face back">
-              <view class="face-top">
-                <text class="face-tag alt">中文释义</text>
-                <text class="face-module">{{ item.sourceModule }}</text>
-              </view>
-              <text class="back-text">{{ item.translation }}</text>
-              <view class="back-actions">
-                <view
-                  class="ghost-btn subtle"
-                  :class="{ disabled: reExplainingId === item.id }"
-                  @click.stop="reExplain(item)"
-                >
-                  <text>{{ reExplainingId === item.id ? '解释中...' : '重新解释' }}</text>
-                </view>
-                <view class="ghost-btn" @click.stop="toastReading">
-                  <text>阅读</text>
+                <view class="flip-face back">
+                  <view class="face-top">
+                    <text class="face-tag alt">中文释义</text>
+                    <text class="face-module">{{ item.sourceModule }}</text>
+                  </view>
+                  <text class="back-text">{{ item.translation }}</text>
+                  <view class="back-actions">
+                    <view
+                      class="ghost-btn subtle"
+                      :class="{ disabled: reExplainingId === item.id }"
+                      @click.stop="reExplain(item)"
+                    >
+                      <text>{{ reExplainingId === item.id ? '解释中...' : '重新解释' }}</text>
+                    </view>
+                    <view class="ghost-btn" @click.stop="toastReading">
+                      <text>阅读</text>
+                    </view>
+                  </view>
                 </view>
               </view>
             </view>
+          </view>
+          <view class="swipe-action" @click="markDone(item)">
+            <text>done</text>
           </view>
         </view>
       </view>
@@ -74,7 +86,7 @@ import { ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { ensureAuthed } from "@/utils/auth";
 import { getUserId } from "@/utils/session";
-import { get, post } from "@/utils/request";
+import { del, get, post } from "@/utils/request";
 
 type TabType = "word" | "sentence";
 
@@ -95,6 +107,8 @@ const items = ref<MistakeItem[]>([]);
 const flippedMap = ref<Record<number, boolean>>({});
 const userId = ref<number | null>(null);
 const reExplainingId = ref<number | null>(null);
+const swipedId = ref<number | null>(null);
+const touchStartX = ref(0);
 
 async function loadItems() {
   if (!userId.value) return;
@@ -120,6 +134,7 @@ function switchTab(tab: TabType) {
 }
 
 function toggleFlip(id: number) {
+  if (swipedId.value === id) return;
   flippedMap.value = {
     ...flippedMap.value,
     [id]: !flippedMap.value[id],
@@ -145,6 +160,32 @@ async function reExplain(item: MistakeItem) {
   } finally {
     reExplainingId.value = null;
   }
+}
+
+function onTouchStart(id: number, event: any) {
+  touchStartX.value = event.changedTouches?.[0]?.clientX || 0;
+  if (swipedId.value && swipedId.value !== id) {
+    swipedId.value = null;
+  }
+}
+
+function onTouchEnd(id: number, event: any) {
+  const endX = event.changedTouches?.[0]?.clientX || 0;
+  const deltaX = endX - touchStartX.value;
+  if (deltaX < -50) {
+    swipedId.value = id;
+  } else if (deltaX > 30 && swipedId.value === id) {
+    swipedId.value = null;
+  }
+}
+
+async function markDone(item: MistakeItem) {
+  if (!userId.value) return;
+  await del(`/mistakes/${item.id}`, { userId: userId.value });
+  items.value = items.value.filter((current) => current.id !== item.id);
+  delete flippedMap.value[item.id];
+  swipedId.value = null;
+  uni.showToast({ title: "已移出误解本", icon: "none" });
 }
 
 onLoad(async () => {
@@ -263,8 +304,49 @@ onShow(async () => {
   gap: 18rpx;
 }
 
+.swipe-row {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28rpx;
+  background: transparent;
+}
+
+.swipe-main {
+  position: relative;
+  z-index: 2;
+  transform: translateX(0);
+  transition: transform 0.25s ease;
+  background: transparent;
+}
+
+.swipe-row.opened .swipe-main {
+  transform: translateX(-136rpx);
+}
+
+.swipe-action {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 136rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 800;
+  z-index: 1;
+  overflow: hidden;
+}
+
 .flip-card {
   perspective: 1200rpx;
+  overflow: hidden;
+  position: relative;
+  z-index: 3;
+  border-radius: 28rpx;
 }
 
 .flip-card-inner {
@@ -272,6 +354,10 @@ onShow(async () => {
   min-height: 228rpx;
   transform-style: preserve-3d;
   transition: transform 0.5s ease;
+}
+
+.flip-card.sentence .flip-card-inner {
+  min-height: 360rpx;
 }
 
 .flip-card.flipped .flip-card-inner {
@@ -282,11 +368,13 @@ onShow(async () => {
   position: absolute;
   inset: 0;
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   border-radius: 28rpx;
   padding: 26rpx;
   box-sizing: border-box;
   border: 1rpx solid rgba(255, 255, 255, 0.65);
   box-shadow: 0 18rpx 36rpx rgba(76, 35, 43, 0.08);
+  overflow: hidden;
 }
 
 .front {
@@ -356,6 +444,10 @@ onShow(async () => {
   display: flex;
   gap: 12rpx;
   flex-wrap: wrap;
+  position: absolute;
+  left: 26rpx;
+  right: 26rpx;
+  bottom: 24rpx;
 }
 
 .ghost-btn {

@@ -38,4 +38,13 @@ public class MistakeController {
     ) {
         return Result.ok(mistakeService.reExplain(userId, id));
     }
+
+    @DeleteMapping("/{id}")
+    public Result<Void> markDone(
+            @PathVariable Long id,
+            @RequestParam Long userId
+    ) {
+        mistakeService.markDone(userId, id);
+        return Result.ok(null);
+    }
 }

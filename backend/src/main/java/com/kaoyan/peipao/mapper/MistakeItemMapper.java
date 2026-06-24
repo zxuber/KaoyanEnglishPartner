@@ -15,4 +15,7 @@ public interface MistakeItemMapper extends BaseMapper<MistakeItem> {
 
     @Select("SELECT * FROM mistake_item WHERE user_id = #{userId} AND type = #{type} AND source_text = #{sourceText} AND status = 'active' LIMIT 1")
     MistakeItem selectActiveBySource(Long userId, String type, String sourceText);
+
+    @Select("SELECT * FROM mistake_item WHERE user_id = #{userId} AND type = 'word' AND status = 'active' ORDER BY updated_at DESC, id DESC LIMIT #{limit}")
+    List<MistakeItem> selectActiveWordMistakes(Long userId, int limit);
 }

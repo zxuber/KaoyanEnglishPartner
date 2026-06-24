@@ -17,60 +17,57 @@
             <text class="article-label">本篇材料</text>
             <text class="article-title">{{ article.title || "阅读专项" }}</text>
             <text class="article-source">{{ article.source || "阅读教练式训练" }}</text>
-            <text class="section-title">文章</text>
-            <text class="passage-progress">第 {{ currentParagraphIndex + 1 }} / {{ paragraphs.length || 1 }} 段</text>
-          </view>
-          <view class="page-pills">
-            <view
-              v-for="(_, idx) in paragraphs"
-              :key="idx"
-              class="page-pill"
-              :class="{ active: idx === currentParagraphIndex }"
-              @click="jumpParagraph(idx)"
-            />
           </view>
         </view>
 
         <view class="passage-stage">
-          <view class="passage-stage-top">
-            <text class="passage-kicker">逐段阅读，减轻整篇压迫感</text>
-            <view class="quota-group">
-              <view class="quota-pill" :class="{ exhausted: article.wordTranslationRemaining <= 0 }">
-                <text>单词 {{ article.wordTranslationRemaining }} / {{ article.wordTranslationLimit }}</text>
-              </view>
-              <view class="quota-pill sentence" :class="{ exhausted: article.sentenceTranslationRemaining <= 0 }">
-                <text>短句 {{ article.sentenceTranslationRemaining }} / {{ article.sentenceTranslationLimit }}</text>
-              </view>
-            </view>
-          </view>
           <view class="selection-head">
             <view>
-              <text class="selection-title">阅读辅助</text>
-              <text class="selection-sub">短按单词选词，长按单词选整句，所有操作都在原文上完成</text>
+              <text class="selection-sub">翻译：短按选词 5 次机会，长按单词选短句 3 次机会</text>
             </view>
           </view>
 
-          <view class="passage-inline-wrap featured">
-            <view
-              v-for="(sentence, sentenceIdx) in sentenceTokens"
-              :key="`${sentenceIdx}-${sentence.text}`"
-              class="inline-sentence-row"
-            >
+          <view
+            class="paragraph-gesture-layer"
+            :class="paragraphAnimationClass"
+            @touchstart="onParagraphTouchStart"
+            @touchend="onParagraphTouchEnd"
+          >
+            <view class="passage-inline-wrap featured">
               <view
-                class="inline-sentence"
-                :class="{ selected: activeSelection?.type === 'sentence' && activeSelection?.text === sentence.text }"
+                v-for="(sentence, sentenceIdx) in getSentenceTokens(paragraphs[currentParagraphIndex] || '')"
+                :key="`${currentParagraphIndex}-${sentenceIdx}-${sentence.text}`"
+                class="inline-sentence-row"
               >
                 <view
-                  v-for="(token, tokenIdx) in sentence.tokens"
-                  :key="`${sentenceIdx}-${tokenIdx}-${token.raw}`"
-                  class="inline-fragment"
-                  :class="{ selected: token.value && activeSelection?.type === 'word' && activeSelection?.text === token.value }"
-                  @tap="token.value && chooseSelection('word', token.value)"
-                  @longpress="token.value && chooseSelection('sentence', sentence.text)"
+                  class="inline-sentence"
+                  :class="{ selected: activeSelection?.type === 'sentence' && activeSelection?.text === sentence.text }"
                 >
-                  <text>{{ token.raw }} </text>
+                  <view
+                    v-for="(token, tokenIdx) in sentence.tokens"
+                    :key="`${currentParagraphIndex}-${sentenceIdx}-${tokenIdx}-${token.raw}`"
+                    class="inline-fragment"
+                    :class="{ selected: token.value && activeSelection?.type === 'word' && activeSelection?.text === token.value }"
+                    @tap="token.value && chooseSelection('word', token.value)"
+                    @longpress="token.value && chooseSelection('sentence', sentence.text)"
+                  >
+                    <text>{{ token.raw }} </text>
+                  </view>
                 </view>
               </view>
+            </view>
+          </view>
+
+          <view class="reading-meta-row">
+            <text class="passage-progress">第 {{ currentParagraphIndex + 1 }} / {{ paragraphs.length || 1 }} 段</text>
+            <view class="page-pills">
+              <view
+                v-for="(_, idx) in paragraphs"
+                :key="idx"
+                class="page-pill"
+                :class="{ active: idx === currentParagraphIndex }"
+                @click="jumpParagraph(idx)"
+              />
             </view>
           </view>
         </view>
@@ -101,6 +98,11 @@
         <view v-if="selectionTranslation" class="translation-result">
           <text class="translation-label">翻译结果</text>
           <text class="translation-text">{{ selectionTranslation }}</text>
+        </view>
+
+        <view v-if="mistakeSuccessText" class="success-banner">
+          <text class="success-icon">✓</text>
+          <text class="success-text">{{ mistakeSuccessText }}</text>
         </view>
 
         <view class="passage-actions">
@@ -333,6 +335,9 @@ const voiceCountdown = ref(VOICE_LIMIT_SECONDS);
 const voiceTimer = ref<number | null>(null);
 const activeSelection = ref<SelectionState | null>(null);
 const selectionTranslation = ref("");
+const mistakeSuccessText = ref("");
+const paragraphTouchStartX = ref(0);
+const paragraphAnimationClass = ref("");
 
 const paragraphs = computed(() => {
   if (!article.value.passage) return [];
@@ -342,19 +347,8 @@ const paragraphs = computed(() => {
     .filter(Boolean);
 });
 
-const currentParagraph = computed(() => {
-  return paragraphs.value[currentParagraphIndex.value] || article.value.passage || "";
-});
-
 const currentQuestion = computed<QuestionItem>(() => {
   return article.value.questions[currentIdx.value] || emptyQuestion;
-});
-
-const sentenceTokens = computed<SentenceTokenGroup[]>(() => {
-  return splitParagraphIntoSentences(currentParagraph.value).map((sentence) => ({
-    text: sentence,
-    tokens: tokenizeParagraph(sentence),
-  }));
 });
 
 const voiceProgress = computed(() => (voiceCountdown.value / VOICE_LIMIT_SECONDS) * 100);
@@ -377,6 +371,13 @@ function splitParagraphIntoSentences(paragraph: string) {
     .filter(Boolean);
 }
 
+function getSentenceTokens(paragraph: string): SentenceTokenGroup[] {
+  return splitParagraphIntoSentences(paragraph).map((sentence) => ({
+    text: sentence,
+    tokens: tokenizeParagraph(sentence),
+  }));
+}
+
 function tokenizeParagraph(paragraph: string): WordToken[] {
   return paragraph
     .split(/\s+/)
@@ -391,6 +392,17 @@ function tokenizeParagraph(paragraph: string): WordToken[] {
 function resetSelection() {
   activeSelection.value = null;
   selectionTranslation.value = "";
+}
+
+function clearMistakeSuccess() {
+  mistakeSuccessText.value = "";
+}
+
+function playParagraphAnimation(direction: "next" | "prev") {
+  paragraphAnimationClass.value = direction === "next" ? "slide-next" : "slide-prev";
+  setTimeout(() => {
+    paragraphAnimationClass.value = "";
+  }, 220);
 }
 
 async function loadArticle() {
@@ -425,6 +437,7 @@ function switchInputMode(mode: InputMode) {
 }
 
 function chooseSelection(type: SelectionType, text: string) {
+  clearMistakeSuccess();
   if (activeSelection.value?.type === type && activeSelection.value.text === text) {
     activeSelection.value = null;
     selectionTranslation.value = "";
@@ -481,11 +494,25 @@ async function addCurrentSelectionToMistake() {
       sourceModule: "阅读",
       articleId: article.value.articleId,
     });
-    uni.showToast({ title: "已加入误解本", icon: "none" });
-  } catch (e) {
-    uni.showToast({ title: "加入失败，请稍后再试", icon: "none" });
+    mistakeSuccessText.value = `${activeSelection.value.type === "word" ? "单词" : "短句"}已经加入误解本`;
   } finally {
     addingMistake.value = false;
+  }
+}
+
+function onParagraphTouchStart(event: any) {
+  paragraphTouchStartX.value = event.changedTouches?.[0]?.clientX || 0;
+}
+
+function onParagraphTouchEnd(event: any) {
+  const endX = event.changedTouches?.[0]?.clientX || 0;
+  const deltaX = endX - paragraphTouchStartX.value;
+  if (deltaX <= -50) {
+    goNextParagraph();
+    return;
+  }
+  if (deltaX >= 50) {
+    goPrevParagraph();
   }
 }
 
@@ -658,20 +685,27 @@ function nextQuestion() {
 }
 
 function jumpParagraph(idx: number) {
+  if (idx === currentParagraphIndex.value) return;
+  playParagraphAnimation(idx > currentParagraphIndex.value ? "next" : "prev");
   currentParagraphIndex.value = idx;
   resetSelection();
+  clearMistakeSuccess();
 }
 
 function goPrevParagraph() {
   if (currentParagraphIndex.value === 0) return;
+  playParagraphAnimation("prev");
   currentParagraphIndex.value -= 1;
   resetSelection();
+  clearMistakeSuccess();
 }
 
 function goNextParagraph() {
   if (currentParagraphIndex.value >= paragraphs.value.length - 1) return;
+  playParagraphAnimation("next");
   currentParagraphIndex.value += 1;
   resetSelection();
+  clearMistakeSuccess();
 }
 
 onLoad(async () => {
@@ -822,7 +856,6 @@ onUnload(() => {
 .page-pills {
   display: flex;
   gap: 10rpx;
-  padding-top: 8rpx;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -846,44 +879,11 @@ onUnload(() => {
   background: linear-gradient(180deg, #fffdf8 0%, #fcf6ee 100%);
 }
 
-.passage-stage-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 16rpx;
-  align-items: center;
-}
-
-.quota-group {
-  display: flex;
-  gap: 10rpx;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.passage-kicker,
 .translation-label,
 .selection-title {
   font-size: 22rpx;
   color: #b45309;
   font-weight: 700;
-}
-
-.quota-pill {
-  padding: 10rpx 16rpx;
-  border-radius: 999rpx;
-  background: #f7ead7;
-  color: #9a5a12;
-  font-size: 22rpx;
-}
-
-.quota-pill.sentence {
-  background: #f7e1ea;
-  color: #9f1239;
-}
-
-.quota-pill.exhausted {
-  background: #ece7e1;
-  color: #9b8e81;
 }
 
 .passage-text,
@@ -913,7 +913,6 @@ onUnload(() => {
 
 .selection-sub {
   display: block;
-  margin-top: 8rpx;
   font-size: 22rpx;
   color: #8a6b50;
 }
@@ -951,6 +950,41 @@ onUnload(() => {
   display: block;
   margin-top: 18rpx;
   width: 100%;
+}
+
+.paragraph-gesture-layer {
+  margin-top: 18rpx;
+  width: 100%;
+}
+
+.paragraph-gesture-layer.slide-next {
+  animation: paragraph-slide-next 220ms ease;
+}
+
+.paragraph-gesture-layer.slide-prev {
+  animation: paragraph-slide-prev 220ms ease;
+}
+
+@keyframes paragraph-slide-next {
+  from {
+    opacity: 0.28;
+    transform: translateX(28rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes paragraph-slide-prev {
+  from {
+    opacity: 0.28;
+    transform: translateX(-28rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .inline-sentence-row {
@@ -1040,6 +1074,44 @@ onUnload(() => {
   border-radius: 20rpx;
   background: #fffdf8;
   border: 1rpx solid #efdfcb;
+}
+
+.reading-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.success-banner {
+  margin-top: 18rpx;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  border: 1rpx solid rgba(34, 197, 94, 0.22);
+}
+
+.success-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 999rpx;
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.success-text {
+  font-size: 24rpx;
+  color: #166534;
+  font-weight: 700;
 }
 
 .passage-actions {

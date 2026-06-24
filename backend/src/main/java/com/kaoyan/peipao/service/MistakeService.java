@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -75,6 +76,28 @@ public class MistakeService {
                 .build();
     }
 
+    public void markDone(Long userId, Long id) {
+        MistakeItem item = mistakeItemMapper.selectOne(new LambdaQueryWrapper<MistakeItem>()
+                .eq(MistakeItem::getId, id)
+                .eq(MistakeItem::getUserId, userId)
+                .eq(MistakeItem::getStatus, "active")
+                .last("LIMIT 1"));
+        if (item == null) {
+            throw new BizException(ErrorCode.MISTAKE_ITEM_NOT_FOUND);
+        }
+        item.setStatus("done");
+        mistakeItemMapper.updateById(item);
+    }
+
+    public List<String> listActiveMistakeWords(Long userId, int limit) {
+        return mistakeItemMapper.selectActiveWordMistakes(userId, limit).stream()
+                .map(MistakeItem::getSourceText)
+                .map(this::normalizeWord)
+                .filter(word -> !word.isBlank())
+                .distinct()
+                .toList();
+    }
+
     private String resolveTranslation(String translation, String sourceText, String type) {
         if (translation != null && !translation.isBlank()) {
             return translation.trim();
@@ -84,6 +107,12 @@ public class MistakeService {
 
     private String normalizeType(String type) {
         return "sentence".equalsIgnoreCase(type) ? "sentence" : "word";
+    }
+
+    private String normalizeWord(String sourceText) {
+        return sourceText == null
+                ? ""
+                : sourceText.trim().toLowerCase(Locale.ROOT).replaceAll("^[^a-z]+|[^a-z'-]+$", "");
     }
 
     private MistakeItemResponse toResponse(MistakeItem item) {
