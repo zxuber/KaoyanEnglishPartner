@@ -1,6 +1,17 @@
 package com.kaoyan.peipao.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kaoyan.peipao.common.ErrorCode;
 import com.kaoyan.peipao.dto.response.ReadingArticleResponse;
+import com.kaoyan.peipao.dto.response.ReadingTranslateResponse;
+import com.kaoyan.peipao.entity.ReadingArticle;
+import com.kaoyan.peipao.entity.ReadingQuestion;
+import com.kaoyan.peipao.entity.ReadingRecord;
+import com.kaoyan.peipao.entity.ReadingTranslationLog;
+import com.kaoyan.peipao.mapper.ReadingArticleMapper;
+import com.kaoyan.peipao.mapper.ReadingQuestionMapper;
+import com.kaoyan.peipao.mapper.ReadingRecordMapper;
+import com.kaoyan.peipao.mapper.ReadingTranslationLogMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -11,72 +22,40 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ReadingService {
 
+    private final ReadingArticleMapper readingArticleMapper;
+    private final ReadingQuestionMapper readingQuestionMapper;
+    private final ReadingRecordMapper readingRecordMapper;
+    private final ReadingTranslationLogMapper readingTranslationLogMapper;
     private final LLMService llmService;
 
-    public ReadingArticleResponse getMockArticle() {
+    public ReadingArticleResponse getArticle(Long userId) {
+        ReadingArticle article = requireActiveArticle();
+        List<ReadingQuestion> questions = readingQuestionMapper.selectByArticleId(article.getId());
+        int usedCount = readingTranslationLogMapper.countByUserAndArticle(userId, article.getId());
+        int limit = article.getTranslationLimit() == null ? 5 : article.getTranslationLimit();
+
         return ReadingArticleResponse.builder()
-                .articleId("reading-001")
-                .source("模拟外刊风格材料")
-                .title("Why Deep Work Still Matters in a Distracted Age")
-                .passage("""
-                        In many modern workplaces, attention has become the scarcest resource. Workers are constantly interrupted by instant messages,
-                        meetings, and the silent pressure to respond quickly. Although such responsiveness gives an impression of efficiency, it often
-                        produces only shallow progress. Deep work, by contrast, requires extended periods of concentration in which a person focuses on
-                        a cognitively demanding task without distraction. During these periods, the worker is not merely busy but is actually producing
-                        something difficult and valuable.
-
-                        The appeal of shallow work is easy to understand. It is visible, social, and measurable in the short term. A manager can see
-                        who replies quickly; a colleague can appreciate who joins every discussion. Deep work is less visible. Its rewards usually appear
-                        later, sometimes after days or weeks, and are therefore easy to underestimate. This difference helps explain why organizations
-                        often praise focus in theory but reward distraction in practice.
-
-                        Yet the economic value of concentration has not diminished. If anything, it has grown. As routine tasks are increasingly handled
-                        by software, the tasks left to humans are those that demand judgment, synthesis, and creativity. These abilities cannot be fully
-                        expressed in fragmented attention. A worker who cannot protect time for sustained thinking may remain active all day while creating
-                        very little that distinguishes him from a machine.
-
-                        This does not mean that communication should be rejected. The challenge is not to eliminate collaboration but to organize it more
-                        intelligently. Teams can benefit from clear blocks of uninterrupted work, shared norms about response time, and deliberate moments
-                        for discussion. In this sense, deep work is not an individual luxury. It is a structural discipline that allows modern knowledge
-                        work to remain genuinely productive.
-                        """)
-                .questions(List.of(
-                        ReadingArticleResponse.QuestionItem.builder()
-                                .id("q1")
-                                .stem("What is the main point of the passage?")
-                                .focus("主旨概括")
-                                .options(List.of(
-                                        ReadingArticleResponse.OptionItem.builder().label("A").content("Deep work is a personal habit that matters only to highly creative individuals.").build(),
-                                        ReadingArticleResponse.OptionItem.builder().label("B").content("Modern organizations should replace communication with long periods of total isolation.").build(),
-                                        ReadingArticleResponse.OptionItem.builder().label("C").content("Deep, sustained concentration remains highly valuable and needs structural protection in modern work.").build(),
-                                        ReadingArticleResponse.OptionItem.builder().label("D").content("Routine tasks are becoming more difficult because software interrupts human concentration.").build()
-                                ))
-                                .answer("The passage argues that deep, sustained concentration remains increasingly valuable and should be structurally protected in modern work.")
-                                .explanation("首段定义 deep work，后两段说明其价值更高，末段提出组织层面的解决方案，整体主旨是强调深度工作仍然重要且需要制度保障。")
-                                .build(),
-                        ReadingArticleResponse.QuestionItem.builder()
-                                .id("q2")
-                                .stem("Why do organizations often reward distraction in practice?")
-                                .focus("因果定位")
-                                .options(List.of(
-                                        ReadingArticleResponse.OptionItem.builder().label("A").content("Because deep work usually leads to conflict within teams and slows down communication.").build(),
-                                        ReadingArticleResponse.OptionItem.builder().label("B").content("Because shallow work is more visible and immediately measurable than the delayed benefits of deep work.").build(),
-                                        ReadingArticleResponse.OptionItem.builder().label("C").content("Because most managers believe software can fully replace human judgment and creativity.").build(),
-                                        ReadingArticleResponse.OptionItem.builder().label("D").content("Because workers prefer cognitively demanding tasks to routine activities in the workplace.").build()
-                                ))
-                                .answer("Because shallow work is more visible and immediately measurable, while the benefits of deep work appear later and are easy to underestimate.")
-                                .explanation("答案集中在第二段。作者对比 shallow work 与 deep work 的可见性和回报周期，这是题干里的 why 的直接原因。")
-                                .build()
-                ))
+                .articleId(article.getArticleKey())
+                .source(article.getSource())
+                .title(article.getTitle())
+                .passage(article.getPassage())
+                .translationLimit(limit)
+                .translationUsed(usedCount)
+                .translationRemaining(Math.max(0, limit - usedCount))
+                .questions(questions.stream().map(this::toQuestionItem).toList())
                 .build();
     }
 
-    public Map<String, Object> coachAnswer(String articleId, String questionId, String userAnswer, int turn) {
-        ReadingArticleResponse article = getMockArticle();
-        ReadingArticleResponse.QuestionItem question = article.getQuestions().stream()
-                .filter(item -> item.getId().equals(questionId))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("题目不存在"));
+    public Map<String, Object> coachAnswer(
+            Long userId,
+            String articleId,
+            String questionId,
+            String userAnswer,
+            String selectedOption,
+            int turn
+    ) {
+        ReadingArticle article = requireArticle(articleId);
+        ReadingQuestion question = requireQuestion(questionId, article.getId());
 
         String coachReply = llmService.generateReadingCoachReply(
                 article.getTitle(),
@@ -86,10 +65,23 @@ public class ReadingService {
                 question.getAnswer(),
                 question.getExplanation(),
                 userAnswer,
+                selectedOption,
                 turn
         );
 
         boolean reveal = turn >= 2;
+
+        ReadingRecord record = new ReadingRecord();
+        record.setUserId(userId);
+        record.setArticleId(article.getId());
+        record.setQuestionId(question.getId());
+        record.setSelectedOption(selectedOption);
+        record.setUserReasoning(userAnswer);
+        record.setCoachReply(coachReply);
+        record.setTurn(turn);
+        record.setRevealAnswer(reveal ? 1 : 0);
+        readingRecordMapper.insert(record);
+
         return Map.of(
                 "coachReply", coachReply,
                 "revealAnswer", reveal,
@@ -97,5 +89,91 @@ public class ReadingService {
                 "explanation", reveal ? question.getExplanation() : "",
                 "turn", turn
         );
+    }
+
+    public ReadingTranslateResponse translateSelection(Long userId, String articleId, String contentType, String sourceText) {
+        ReadingArticle article = requireArticle(articleId);
+        int limit = article.getTranslationLimit() == null ? 5 : article.getTranslationLimit();
+        int usedCount = readingTranslationLogMapper.countByUserAndArticle(userId, article.getId());
+        if (usedCount >= limit) {
+            throw new RuntimeException(ErrorCode.READING_TRANSLATION_LIMIT_REACHED.getMessage());
+        }
+
+        String translatedText = llmService.translateSelection(sourceText.trim(), contentType);
+
+        ReadingTranslationLog log = new ReadingTranslationLog();
+        log.setUserId(userId);
+        log.setArticleId(article.getId());
+        log.setContentType(normalizeContentType(contentType));
+        log.setSourceText(sourceText.trim());
+        log.setTranslatedText(translatedText);
+        readingTranslationLogMapper.insert(log);
+
+        int nextUsedCount = usedCount + 1;
+        return ReadingTranslateResponse.builder()
+                .translatedText(translatedText)
+                .limit(limit)
+                .usedCount(nextUsedCount)
+                .remainingCount(Math.max(0, limit - nextUsedCount))
+                .build();
+    }
+
+    private ReadingArticle requireActiveArticle() {
+        ReadingArticle article = readingArticleMapper.selectActiveArticle();
+        if (article == null) {
+            throw new RuntimeException(ErrorCode.READING_NOT_FOUND.getMessage());
+        }
+        return article;
+    }
+
+    private ReadingArticle requireArticle(String articleId) {
+        ReadingArticle article = readingArticleMapper.selectByArticleKey(articleId);
+        if (article == null) {
+            throw new RuntimeException(ErrorCode.READING_NOT_FOUND.getMessage());
+        }
+        return article;
+    }
+
+    private ReadingQuestion requireQuestion(String questionId, Long articleDbId) {
+        ReadingQuestion question;
+        try {
+            question = readingQuestionMapper.selectById(Long.parseLong(questionId));
+        } catch (NumberFormatException e) {
+            question = readingQuestionMapper.selectOne(new LambdaQueryWrapper<ReadingQuestion>()
+                    .eq(ReadingQuestion::getArticleId, articleDbId)
+                    .eq(ReadingQuestion::getQuestionNo, parseQuestionNo(questionId)));
+        }
+        if (question == null || !articleDbId.equals(question.getArticleId())) {
+            throw new RuntimeException(ErrorCode.READING_QUESTION_NOT_FOUND.getMessage());
+        }
+        return question;
+    }
+
+    private int parseQuestionNo(String questionId) {
+        String digits = questionId.replaceAll("[^0-9]", "");
+        if (digits.isBlank()) {
+            return -1;
+        }
+        return Integer.parseInt(digits);
+    }
+
+    private String normalizeContentType(String contentType) {
+        return "sentence".equalsIgnoreCase(contentType) ? "sentence" : "word";
+    }
+
+    private ReadingArticleResponse.QuestionItem toQuestionItem(ReadingQuestion question) {
+        return ReadingArticleResponse.QuestionItem.builder()
+                .id(String.valueOf(question.getId()))
+                .stem(question.getStem())
+                .focus(question.getFocus())
+                .options(List.of(
+                        ReadingArticleResponse.OptionItem.builder().label("A").content(question.getOptionA()).build(),
+                        ReadingArticleResponse.OptionItem.builder().label("B").content(question.getOptionB()).build(),
+                        ReadingArticleResponse.OptionItem.builder().label("C").content(question.getOptionC()).build(),
+                        ReadingArticleResponse.OptionItem.builder().label("D").content(question.getOptionD()).build()
+                ))
+                .answer(question.getAnswer())
+                .explanation(question.getExplanation())
+                .build();
     }
 }

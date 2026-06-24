@@ -13,7 +13,7 @@
     <template v-else>
       <view class="passage-card">
         <view class="passage-head">
-          <view>
+          <view class="passage-head-copy">
             <text class="article-label">本篇材料</text>
             <text class="article-title">{{ article.title || "阅读专项" }}</text>
             <text class="article-source">{{ article.source || "阅读教练式训练" }}</text>
@@ -26,25 +26,83 @@
               :key="idx"
               class="page-pill"
               :class="{ active: idx === currentParagraphIndex }"
-              @click="currentParagraphIndex = idx"
+              @click="jumpParagraph(idx)"
             />
           </view>
         </view>
 
         <view class="passage-stage">
-          <text class="passage-kicker">逐段阅读，减轻整篇压迫感</text>
-          <text class="passage-text featured">{{ currentParagraph }}</text>
+          <view class="passage-stage-top">
+            <text class="passage-kicker">逐段阅读，减轻整篇压迫感</text>
+            <view class="quota-pill" :class="{ exhausted: article.translationRemaining <= 0 }">
+              <text>翻译 {{ article.translationRemaining }} / {{ article.translationLimit }}</text>
+            </view>
+          </view>
+          <view class="selection-head">
+            <view>
+              <text class="selection-title">阅读辅助</text>
+              <text class="selection-sub">短按单词选词，长按单词选整句，所有操作都在原文上完成</text>
+            </view>
+          </view>
+
+          <view class="passage-inline-wrap featured">
+            <view
+              v-for="(sentence, sentenceIdx) in sentenceTokens"
+              :key="`${sentenceIdx}-${sentence.text}`"
+              class="inline-sentence-row"
+            >
+              <view
+                class="inline-sentence"
+                :class="{ selected: activeSelection?.type === 'sentence' && activeSelection?.text === sentence.text }"
+              >
+                <view
+                  v-for="(token, tokenIdx) in sentence.tokens"
+                  :key="`${sentenceIdx}-${tokenIdx}-${token.raw}`"
+                  class="inline-fragment"
+                  :class="{ selected: token.value && activeSelection?.type === 'word' && activeSelection?.text === token.value }"
+                  @tap="token.value && chooseSelection('word', token.value)"
+                  @longpress="token.value && chooseSelection('sentence', sentence.text)"
+                >
+                  <text>{{ token.raw }} </text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view v-if="activeSelection" class="selection-action-bar">
+          <view class="selection-preview">
+            <text class="selection-preview-tag">{{ activeSelection.type === 'word' ? '单词' : '短句' }}</text>
+            <text class="selection-preview-text">{{ activeSelection.text }}</text>
+          </view>
+          <view class="selection-buttons">
+            <view
+              class="selection-btn translate"
+              :class="{ disabled: article.translationRemaining <= 0 || translating }"
+              @click="translateSelection"
+            >
+              <text>{{ translating ? '翻译中...' : '翻译' }}</text>
+            </view>
+            <view
+              class="selection-btn collect"
+              :class="{ disabled: addingMistake }"
+              @click="addCurrentSelectionToMistake"
+            >
+              <text>{{ addingMistake ? '加入中...' : '加入误解本' }}</text>
+            </view>
+          </view>
+        </view>
+
+        <view v-if="selectionTranslation" class="translation-result">
+          <text class="translation-label">翻译结果</text>
+          <text class="translation-text">{{ selectionTranslation }}</text>
         </view>
 
         <view class="passage-actions">
           <view class="nav-btn" :class="{ disabled: currentParagraphIndex === 0 }" @click="goPrevParagraph">
             <text>上一段</text>
           </view>
-          <view
-            class="nav-btn primary"
-            :class="{ disabled: currentParagraphIndex === paragraphs.length - 1 }"
-            @click="goNextParagraph"
-          >
+          <view class="nav-btn primary" :class="{ disabled: currentParagraphIndex === paragraphs.length - 1 }" @click="goNextParagraph">
             <text>{{ currentParagraphIndex === paragraphs.length - 1 ? "已到最后一段" : "下一段" }}</text>
           </view>
         </view>
@@ -72,18 +130,10 @@
         <view class="input-head">
           <text class="section-title">先说你的思路</text>
           <view class="mode-tabs">
-            <view
-              class="mode-tab"
-              :class="{ active: inputMode === 'text' }"
-              @click="switchInputMode('text')"
-            >
+            <view class="mode-tab" :class="{ active: inputMode === 'text' }" @click="switchInputMode('text')">
               <text>文字输入</text>
             </view>
-            <view
-              class="mode-tab"
-              :class="{ active: inputMode === 'voice' }"
-              @click="switchInputMode('voice')"
-            >
+            <view class="mode-tab" :class="{ active: inputMode === 'voice' }" @click="switchInputMode('voice')">
               <text>语音录入</text>
             </view>
           </view>
@@ -113,11 +163,7 @@
               {{ isRecording ? `剩余 ${voiceCountdown}s` : "单次最多 30 秒，停止后会自动转文字" }}
             </text>
 
-            <view
-              class="voice-button"
-              :class="{ recording: isRecording, disabled: uploading || submitting }"
-              @click="toggleVoiceRecording"
-            >
+            <view class="voice-button" :class="{ recording: isRecording, disabled: uploading || submitting }" @click="toggleVoiceRecording">
               <text class="voice-button-icon">{{ isRecording ? "■" : "●" }}</text>
               <text class="voice-button-text">
                 {{ isRecording ? "停止录音" : (uploading ? "识别中..." : "开始录音") }}
@@ -174,6 +220,7 @@ import { getUserId } from "@/utils/session";
 import { get, post } from "@/utils/request";
 
 type InputMode = "text" | "voice";
+type SelectionType = "word" | "sentence";
 
 interface OptionItem {
   label: string;
@@ -194,6 +241,9 @@ interface ArticleData {
   source: string;
   title: string;
   passage: string;
+  translationLimit: number;
+  translationUsed: number;
+  translationRemaining: number;
   questions: QuestionItem[];
 }
 
@@ -203,6 +253,28 @@ interface CoachResponse {
   answer: string;
   explanation: string;
   turn: number;
+}
+
+interface TranslationResponse {
+  translatedText: string;
+  limit: number;
+  usedCount: number;
+  remainingCount: number;
+}
+
+interface SelectionState {
+  type: SelectionType;
+  text: string;
+}
+
+interface WordToken {
+  raw: string;
+  value: string;
+}
+
+interface SentenceTokenGroup {
+  text: string;
+  tokens: WordToken[];
 }
 
 const VOICE_LIMIT_SECONDS = 30;
@@ -219,7 +291,18 @@ const emptyQuestion: QuestionItem = {
 const userId = ref<number | null>(null);
 const loading = ref(true);
 const submitting = ref(false);
-const article = ref<ArticleData>({ articleId: "", source: "", title: "", passage: "", questions: [] });
+const translating = ref(false);
+const addingMistake = ref(false);
+const article = ref<ArticleData>({
+  articleId: "",
+  source: "",
+  title: "",
+  passage: "",
+  translationLimit: 5,
+  translationUsed: 0,
+  translationRemaining: 5,
+  questions: [],
+});
 const currentIdx = ref(0);
 const currentParagraphIndex = ref(0);
 const turn = ref(1);
@@ -234,6 +317,8 @@ const isRecording = ref(false);
 const recorderManager = ref<UniApp.RecorderManager | null>(null);
 const voiceCountdown = ref(VOICE_LIMIT_SECONDS);
 const voiceTimer = ref<number | null>(null);
+const activeSelection = ref<SelectionState | null>(null);
+const selectionTranslation = ref("");
 
 const paragraphs = computed(() => {
   if (!article.value.passage) return [];
@@ -251,20 +336,49 @@ const currentQuestion = computed<QuestionItem>(() => {
   return article.value.questions[currentIdx.value] || emptyQuestion;
 });
 
-const voiceProgress = computed(() => {
-  return (voiceCountdown.value / VOICE_LIMIT_SECONDS) * 100;
+const sentenceTokens = computed<SentenceTokenGroup[]>(() => {
+  return splitParagraphIntoSentences(currentParagraph.value).map((sentence) => ({
+    text: sentence,
+    tokens: tokenizeParagraph(sentence),
+  }));
 });
+
+const voiceProgress = computed(() => (voiceCountdown.value / VOICE_LIMIT_SECONDS) * 100);
 
 const canSubmit = computed(() => {
   if (revealed.value) return true;
   return (!!answerText.value.trim() || !!selectedOption.value) && !submitting.value && !uploading.value;
 });
 
+function splitParagraphIntoSentences(paragraph: string) {
+  return (paragraph.match(/[^.!?]+[.!?]+["']?|[^.!?]+$/g) || [])
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function tokenizeParagraph(paragraph: string): WordToken[] {
+  return paragraph
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => ({
+      raw: item,
+      value: item.replace(/^[^A-Za-z]+|[^A-Za-z'-]+$/g, ""),
+    }));
+}
+
+function resetSelection() {
+  activeSelection.value = null;
+  selectionTranslation.value = "";
+}
+
 async function loadArticle() {
-  const res = await get<ArticleData>("/reading/article");
+  if (!userId.value) return;
+  const res = await get<ArticleData>("/reading/article", { userId: userId.value });
   if (res.data) {
     article.value = res.data;
     currentParagraphIndex.value = 0;
+    resetSelection();
   }
 }
 
@@ -287,6 +401,63 @@ async function syncRecentTraining() {
 
 function switchInputMode(mode: InputMode) {
   inputMode.value = mode;
+}
+
+function chooseSelection(type: SelectionType, text: string) {
+  if (activeSelection.value?.type === type && activeSelection.value.text === text) {
+    activeSelection.value = null;
+    selectionTranslation.value = "";
+    return;
+  }
+  activeSelection.value = { type, text };
+  selectionTranslation.value = "";
+}
+
+async function translateSelection() {
+  if (!activeSelection.value || !userId.value) return;
+  if (article.value.translationRemaining <= 0) {
+    uni.showToast({ title: "每篇最多5次翻译机会哦～", icon: "none" });
+    return;
+  }
+  translating.value = true;
+  try {
+    const res = await post<TranslationResponse>("/reading/translate", {
+      userId: userId.value,
+      articleId: article.value.articleId,
+      contentType: activeSelection.value.type,
+      sourceText: activeSelection.value.text,
+    });
+    if (res.data) {
+      selectionTranslation.value = res.data.translatedText;
+      article.value.translationLimit = res.data.limit;
+      article.value.translationUsed = res.data.usedCount;
+      article.value.translationRemaining = res.data.remainingCount;
+    }
+  } catch (e) {
+    uni.showToast({ title: "翻译失败，请稍后再试", icon: "none" });
+  } finally {
+    translating.value = false;
+  }
+}
+
+async function addCurrentSelectionToMistake() {
+  if (!activeSelection.value || !userId.value) return;
+  addingMistake.value = true;
+  try {
+    await post("/mistakes", {
+      userId: userId.value,
+      type: activeSelection.value.type,
+      sourceText: activeSelection.value.text,
+      translation: selectionTranslation.value || undefined,
+      sourceModule: "阅读",
+      articleId: article.value.articleId,
+    });
+    uni.showToast({ title: "已加入误解本", icon: "none" });
+  } catch (e) {
+    uni.showToast({ title: "加入失败，请稍后再试", icon: "none" });
+  } finally {
+    addingMistake.value = false;
+  }
 }
 
 function buildUserAnswer() {
@@ -314,6 +485,7 @@ async function submitAnswer() {
       articleId: article.value.articleId,
       questionId: currentQuestion.value.id,
       userAnswer: buildUserAnswer(),
+      selectedOption: selectedOption.value || undefined,
       turn: turn.value,
     });
     if (res.data) {
@@ -452,17 +624,25 @@ function nextQuestion() {
   revealed.value = false;
   currentParagraphIndex.value = 0;
   inputMode.value = "text";
+  resetSelection();
   syncRecentTraining();
+}
+
+function jumpParagraph(idx: number) {
+  currentParagraphIndex.value = idx;
+  resetSelection();
 }
 
 function goPrevParagraph() {
   if (currentParagraphIndex.value === 0) return;
   currentParagraphIndex.value -= 1;
+  resetSelection();
 }
 
 function goNextParagraph() {
   if (currentParagraphIndex.value >= paragraphs.value.length - 1) return;
   currentParagraphIndex.value += 1;
+  resetSelection();
 }
 
 onLoad(async () => {
@@ -554,11 +734,17 @@ onUnload(() => {
 }
 
 .passage-head,
-.input-head {
+.input-head,
+.selection-head,
+.selection-action-bar {
   display: flex;
   justify-content: space-between;
   gap: 20rpx;
   align-items: flex-start;
+}
+
+.passage-head-copy {
+  flex: 1;
 }
 
 .article-label {
@@ -588,9 +774,18 @@ onUnload(() => {
   color: #8a6b50;
 }
 
-.passage-progress {
+.section-title {
   display: block;
   margin-top: 14rpx;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #2f241a;
+}
+
+.passage-progress {
+  display: block;
+  margin-top: 6rpx;
   font-size: 22rpx;
   color: #9a6b3a;
 }
@@ -622,20 +817,32 @@ onUnload(() => {
   background: linear-gradient(180deg, #fffdf8 0%, #fcf6ee 100%);
 }
 
-.passage-kicker {
-  display: block;
-  margin-bottom: 16rpx;
+.passage-stage-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16rpx;
+  align-items: center;
+}
+
+.passage-kicker,
+.translation-label,
+.selection-title {
   font-size: 22rpx;
   color: #b45309;
   font-weight: 700;
 }
 
-.section-title {
-  display: block;
-  margin-bottom: 16rpx;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #2f241a;
+.quota-pill {
+  padding: 10rpx 16rpx;
+  border-radius: 999rpx;
+  background: #f7ead7;
+  color: #9a5a12;
+  font-size: 22rpx;
+}
+
+.quota-pill.exhausted {
+  background: #ece7e1;
+  color: #9b8e81;
 }
 
 .passage-text,
@@ -644,7 +851,9 @@ onUnload(() => {
 .result-answer,
 .result-explanation,
 .option-content,
-.recognized-text {
+.recognized-text,
+.selection-preview-text,
+.translation-text {
   display: block;
   font-size: 26rpx;
   line-height: 1.82;
@@ -653,30 +862,147 @@ onUnload(() => {
   word-break: break-word;
 }
 
-.passage-text.featured {
+.passage-text.featured,
+.passage-inline-wrap.featured {
+  margin-top: 16rpx;
   font-size: 32rpx;
   line-height: 1.95;
   color: #2c241c;
 }
 
+.selection-sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #8a6b50;
+}
+
+.mode-tabs,
 .passage-actions,
 .btn-row,
-.mode-tabs {
+.selection-buttons {
   display: flex;
   gap: 14rpx;
 }
 
-.passage-actions {
-  margin-top: 20rpx;
-}
-
+.mode-tab,
 .nav-btn,
 .btn,
-.mode-tab {
+.selection-btn {
   text-align: center;
-  font-size: 25rpx;
+  font-size: 24rpx;
   font-weight: 700;
   border-radius: 999rpx;
+}
+
+.mode-tab {
+  padding: 14rpx 22rpx;
+  background: #f4ede4;
+  color: #85644a;
+}
+
+.mode-tab.active {
+  background: #f2dcc0;
+  color: #8a4f14;
+}
+
+.passage-inline-wrap {
+  display: block;
+  margin-top: 18rpx;
+  width: 100%;
+}
+
+.inline-sentence-row {
+  display: block;
+  width: 100%;
+  margin-bottom: 12rpx;
+}
+
+.inline-fragment {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 2rpx 4rpx;
+  border-radius: 10rpx;
+  box-sizing: border-box;
+}
+
+.inline-sentence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  width: 100%;
+  padding: 4rpx 2rpx;
+  border-radius: 12rpx;
+  box-sizing: border-box;
+  font-size: 32rpx;
+  line-height: 1.95;
+  color: #2c241c;
+}
+
+.inline-fragment.selected,
+.inline-sentence.selected {
+  background: rgba(198, 122, 35, 0.18);
+  color: #8a4f14;
+}
+
+.selection-action-bar {
+  margin-top: 18rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 20rpx;
+  background: #fff4e7;
+  align-items: center;
+}
+
+.selection-preview {
+  flex: 1;
+}
+
+.selection-preview-tag {
+  display: inline-block;
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  background: #f0dfc5;
+  color: #8a5a2b;
+  font-size: 20rpx;
+  font-weight: 700;
+}
+
+.selection-preview-text {
+  margin-top: 10rpx;
+}
+
+.selection-btn {
+  min-width: 180rpx;
+  padding: 20rpx 0;
+}
+
+.selection-btn.translate {
+  background: linear-gradient(135deg, #9a5a12 0%, #c67a23 100%);
+  color: #fffaf1;
+}
+
+.selection-btn.collect {
+  background: #ead8c0;
+  color: #7b4e24;
+}
+
+.selection-btn.disabled,
+.nav-btn.disabled,
+.btn.disabled,
+.voice-button.disabled {
+  opacity: 0.45;
+}
+
+.translation-result {
+  margin-top: 18rpx;
+  padding: 18rpx 20rpx;
+  border-radius: 20rpx;
+  background: #fffdf8;
+  border: 1rpx solid #efdfcb;
+}
+
+.passage-actions {
+  margin-top: 20rpx;
 }
 
 .nav-btn {
@@ -691,12 +1017,6 @@ onUnload(() => {
 .voice-button.recording {
   background: linear-gradient(135deg, #9a5a12 0%, #c67a23 100%);
   color: #fffaf1;
-}
-
-.nav-btn.disabled,
-.btn.disabled,
-.voice-button.disabled {
-  opacity: 0.45;
 }
 
 .question-focus {
@@ -728,7 +1048,8 @@ onUnload(() => {
   background: #fff3df;
 }
 
-.option-label {
+.option-label,
+.selection-hint-value {
   width: 42rpx;
   height: 42rpx;
   line-height: 42rpx;
@@ -743,21 +1064,6 @@ onUnload(() => {
 
 .input-head {
   margin-bottom: 18rpx;
-}
-
-.mode-tabs {
-  flex-shrink: 0;
-}
-
-.mode-tab {
-  padding: 14rpx 24rpx;
-  background: #f4ede4;
-  color: #85644a;
-}
-
-.mode-tab.active {
-  background: #f2dcc0;
-  color: #8a4f14;
 }
 
 .answer-box {
@@ -786,21 +1092,16 @@ onUnload(() => {
   margin-bottom: 18rpx;
 }
 
-.selection-hint-label {
+.selection-hint-label,
+.voice-sub,
+.recognized-label {
   font-size: 22rpx;
   color: #8a6b50;
 }
 
 .selection-hint-value {
-  min-width: 38rpx;
-  height: 38rpx;
-  line-height: 38rpx;
-  border-radius: 50%;
-  text-align: center;
   background: #c67a23;
   color: #fffaf1;
-  font-size: 22rpx;
-  font-weight: 800;
 }
 
 .voice-panel {
@@ -820,8 +1121,6 @@ onUnload(() => {
 .recognized-label {
   display: block;
   margin-top: 10rpx;
-  font-size: 22rpx;
-  color: #8a6b50;
 }
 
 .voice-button {
@@ -888,23 +1187,22 @@ onUnload(() => {
   color: #fffaf1;
 }
 
-.btn-secondary {
-  background: #f0e2d1;
-  color: #8a5a2b;
-}
-
 @media (max-width: 420px) {
   .passage-head,
-  .input-head {
+  .input-head,
+  .selection-head,
+  .selection-action-bar {
     flex-direction: column;
   }
 
   .mode-tabs,
-  .btn-row {
+  .btn-row,
+  .selection-buttons {
     width: 100%;
   }
 
   .mode-tab,
+  .selection-btn,
   .btn {
     flex: 1;
   }

@@ -72,6 +72,7 @@ public class LLMService {
             String standardAnswer,
             String explanation,
             String userAnswer,
+            String selectedOption,
             int turn
     ) {
         String prompt = """
@@ -98,6 +99,9 @@ public class LLMService {
                 【用户当前回答】
                 %s
 
+                【用户当前倾向选项】
+                %s
+
                 【当前轮次】
                 第 %d 轮
 
@@ -106,7 +110,7 @@ public class LLMService {
                 2. 不要直接说“正确答案是……”。
                 3. 语气像真人老师，简洁、明确、能继续问下去。
                 4. 只输出纯文本，不要输出 JSON，不要编号。
-                """.formatted(title, passage, stem, focus, standardAnswer, explanation, userAnswer, turn);
+                """.formatted(title, passage, stem, focus, standardAnswer, explanation, userAnswer, selectedOption == null ? "未选择" : selectedOption, turn);
 
         try {
             return callDeepSeekText(prompt, "你是一个考研英语阅读教练。输出简短中文引导，不要输出 JSON。");
@@ -117,6 +121,30 @@ public class LLMService {
                 case 2 -> "继续往前推一步：把你锁定的那一句原文复述出来，再说它为什么能支撑你的判断。";
                 default -> "你已经接近答案了，回到题干关键词，再核对原文里最直接对应的句子。";
             };
+        }
+    }
+
+    public String translateSelection(String sourceText, String contentType) {
+        String prompt = """
+                你是一个考研英语助手。请把下面的英文翻译成自然、简洁、适合考研复盘使用的中文。
+
+                【内容类型】
+                %s
+
+                【英文内容】
+                %s
+
+                要求：
+                1. 如果是单词，优先给出 1-2 个最常用中文义项。
+                2. 如果是短句，直接给出自然中文译文。
+                3. 不要编号，不要额外解释，不要输出原文。
+                """.formatted(contentType, sourceText);
+
+        try {
+            return callDeepSeekText(prompt, "你是一个精简的英汉翻译助手，只输出中文结果。");
+        } catch (Exception e) {
+            log.warn("Translate fallback triggered: {}", e.getMessage());
+            return "暂未获取翻译，请稍后重试";
         }
     }
 

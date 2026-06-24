@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-public class ReadingCoachRequest {
+public class ReadingTranslateRequest {
 
     @NotNull(message = "用户ID不能为空")
     private Long userId;
@@ -13,13 +13,9 @@ public class ReadingCoachRequest {
     @NotBlank(message = "文章ID不能为空")
     private String articleId;
 
-    @NotBlank(message = "题目ID不能为空")
-    private String questionId;
+    @NotBlank(message = "内容类型不能为空")
+    private String contentType;
 
-    @NotBlank(message = "用户回答不能为空")
-    private String userAnswer;
-
-    private String selectedOption;
-
-    private Integer turn;
+    @NotBlank(message = "选中文本不能为空")
+    private String sourceText;
 }

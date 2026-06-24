@@ -17,6 +17,9 @@ public class ReadingArticleResponse {
     private String source;
     private String title;
     private String passage;
+    private Integer translationLimit;
+    private Integer translationUsed;
+    private Integer translationRemaining;
     private List<QuestionItem> questions;
 
     @Data

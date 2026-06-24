@@ -281,8 +281,11 @@ $env:APP_STT_PYTHON_COMMAND="py"
 
 当前阅读模块是 MVP 首版，范围刻意压缩为一条可验证闭环：
 
-- 后端 `GET /api/v1/reading/article`
+- 后端 `GET /api/v1/reading/article?userId=`
 - 后端 `POST /api/v1/reading/coach`
+- 后端 `POST /api/v1/reading/translate`
+- 后端 `GET /api/v1/mistakes?userId=&type=word|sentence`
+- 后端 `POST /api/v1/mistakes`
 - 前端阅读页流程：
   - 先按自然段分页展示文章
   - 再展示一道更接近真题形态的选择题（题干 + 4 个选项）
@@ -290,13 +293,31 @@ $env:APP_STT_PYTHON_COMMAND="py"
   - AI 连续追问 1-2 轮
   - 最后展示参考答案与解析
 
-当前使用固定文章与固定题目，目的是先验证“AI 教练式阅读陪练”的交互方式，再决定是否扩展为题库化结构。
+当前已不再是纯内存 mock：
+
+- SpringBoot 启动时会自动补齐以下表：
+  - `reading_article`
+  - `reading_question`
+  - `reading_record`
+  - `reading_translation_log`
+  - `mistake_item`
+- 如果 `reading_article` 为空，启动时会自动插入一篇示例文章和两道示例题
+
+这样新机器或新库只要基础 MySQL 已可用，阅读模块与误解本 MVP 就不会因为“没表 / 没数据”直接空掉。
 
 当前阅读输入方式：
 
 - 文字输入：最大 1000 字
 - 语音录入：单次最多 30 秒，结束后自动调用 `/speech/recognize` 转文字
 - 语音转写结果会自动回填到输入框，用户仍可手动补充或修改
+
+当前阅读辅助方式：
+
+- `短按单词 = 选中单词`
+- `长按单词 = 选中该词所在整句`
+- 每篇文章最多 `5` 次翻译机会
+- 翻译次数耗尽后，前端翻译按钮会置灰，并提示：`每篇最多5次翻译机会哦～`
+- `加入误解本` 不受这 5 次翻译机会限制；如果当下还没有翻译文本，后端会补做一次翻译后再入库
 
 这样做的目的不是把阅读退化成普通刷题，而是保留真题选择题结构，同时强化“先表达判断路径”的 AI 教练式训练方式。
 
