@@ -17,6 +17,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Result.fail(ErrorCode.PARAM_INVALID.getCode(), msg));
     }
 
+    @ExceptionHandler(BizException.class)
+    public ResponseEntity<Result<Void>> handleBizException(BizException e) {
+        return ResponseEntity.ok(Result.fail(e.getCode(), e.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Result<Void>> handleException(Exception e) {
         return ResponseEntity.internalServerError()

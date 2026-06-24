@@ -16,6 +16,9 @@ public class ReadingTranslateRequest {
     @NotBlank(message = "内容类型不能为空")
     private String contentType;
 
+    @NotBlank(message = "阅读会话不能为空")
+    private String readingSessionId;
+
     @NotBlank(message = "选中文本不能为空")
     private String sourceText;
 }

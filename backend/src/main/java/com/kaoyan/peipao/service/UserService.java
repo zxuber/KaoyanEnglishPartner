@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -30,8 +31,11 @@ public class UserService {
     private final WordProgressMapper wordProgressMapper;
     private final LLMService llmService;
     private final ObjectMapper objectMapper;
+    private final TokenActionGuardService tokenActionGuardService;
 
     public Map<String, Object> submitOnboarding(OnboardingRequest request) {
+        Long guardUserId = request.getUserId() == null ? 0L : request.getUserId();
+        tokenActionGuardService.guard(guardUserId, "onboarding-generate-plan", Duration.ofSeconds(15));
         Map<String, Object> profile = new HashMap<>();
         profile.put("examType", request.getExamType());
         profile.put("targetScore", request.getTargetScore());

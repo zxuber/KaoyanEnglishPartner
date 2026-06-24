@@ -23,6 +23,8 @@ public enum ErrorCode {
     // 500xx: Server errors
     INTERNAL_ERROR(50001, "服务器内部错误"),
     READING_TRANSLATION_LIMIT_REACHED(50002, "每篇最多5次翻译机会哦～"),
+    SENTENCE_TRANSLATION_LIMIT_REACHED(50003, "每篇短句翻译最多3次哦～"),
+    TOKEN_ACTION_TOO_FREQUENT(42901, "请不要频繁点击，稍后再试"),
     LLM_TIMEOUT(50301, "AI 服务响应超时，已使用本地降级方案"),
     LLM_GENERATION_FAILED(50302, "AI 方案生成失败，请重试");
 

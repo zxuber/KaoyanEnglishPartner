@@ -13,4 +13,7 @@ public interface WordMapper extends BaseMapper<Word> {
 
     @Select("SELECT * FROM word ORDER BY RAND() LIMIT #{count}")
     List<Word> selectRandom(int count);
+
+    @Select("SELECT * FROM word WHERE LOWER(word) = LOWER(#{word}) LIMIT 1")
+    Word selectByWord(String word);
 }

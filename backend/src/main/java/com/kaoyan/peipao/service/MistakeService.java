@@ -1,12 +1,17 @@
 package com.kaoyan.peipao.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kaoyan.peipao.common.BizException;
+import com.kaoyan.peipao.common.ErrorCode;
 import com.kaoyan.peipao.dto.request.AddMistakeItemRequest;
 import com.kaoyan.peipao.dto.response.MistakeItemResponse;
+import com.kaoyan.peipao.dto.response.MistakeReExplainResponse;
 import com.kaoyan.peipao.entity.MistakeItem;
 import com.kaoyan.peipao.mapper.MistakeItemMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.List;
 
 @Service
@@ -15,6 +20,7 @@ public class MistakeService {
 
     private final MistakeItemMapper mistakeItemMapper;
     private final LLMService llmService;
+    private final TokenActionGuardService tokenActionGuardService;
 
     public MistakeItemResponse addItem(AddMistakeItemRequest request) {
         MistakeItem existing = mistakeItemMapper.selectActiveBySource(
@@ -42,6 +48,31 @@ public class MistakeService {
         return mistakeItemMapper.selectActiveByUserAndType(userId, normalizeType(type)).stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    public MistakeReExplainResponse reExplain(Long userId, Long id) {
+        MistakeItem item = mistakeItemMapper.selectOne(new LambdaQueryWrapper<MistakeItem>()
+                .eq(MistakeItem::getId, id)
+                .eq(MistakeItem::getUserId, userId)
+                .eq(MistakeItem::getStatus, "active")
+                .last("LIMIT 1"));
+        if (item == null) {
+            throw new BizException(ErrorCode.MISTAKE_ITEM_NOT_FOUND);
+        }
+
+        tokenActionGuardService.guard(userId, "mistake-re-explain", Duration.ofSeconds(8));
+
+        String translation = llmService.translateSelection(item.getSourceText(), normalizeType(item.getType()));
+        if (translation == null || translation.isBlank() || "暂未获取翻译，请稍后重试".equals(translation)) {
+            throw new BizException(ErrorCode.LLM_GENERATION_FAILED, "重新解释失败，请稍后再试");
+        }
+
+        item.setTranslation(translation.trim());
+        mistakeItemMapper.updateById(item);
+        return MistakeReExplainResponse.builder()
+                .id(item.getId())
+                .translation(item.getTranslation())
+                .build();
     }
 
     private String resolveTranslation(String translation, String sourceText, String type) {

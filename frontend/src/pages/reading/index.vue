@@ -34,8 +34,13 @@
         <view class="passage-stage">
           <view class="passage-stage-top">
             <text class="passage-kicker">逐段阅读，减轻整篇压迫感</text>
-            <view class="quota-pill" :class="{ exhausted: article.translationRemaining <= 0 }">
-              <text>翻译 {{ article.translationRemaining }} / {{ article.translationLimit }}</text>
+            <view class="quota-group">
+              <view class="quota-pill" :class="{ exhausted: article.wordTranslationRemaining <= 0 }">
+                <text>单词 {{ article.wordTranslationRemaining }} / {{ article.wordTranslationLimit }}</text>
+              </view>
+              <view class="quota-pill sentence" :class="{ exhausted: article.sentenceTranslationRemaining <= 0 }">
+                <text>短句 {{ article.sentenceTranslationRemaining }} / {{ article.sentenceTranslationLimit }}</text>
+              </view>
             </view>
           </view>
           <view class="selection-head">
@@ -78,7 +83,7 @@
           <view class="selection-buttons">
             <view
               class="selection-btn translate"
-              :class="{ disabled: article.translationRemaining <= 0 || translating }"
+              :class="{ disabled: !canTranslateSelection || translating }"
               @click="translateSelection"
             >
               <text>{{ translating ? '翻译中...' : '翻译' }}</text>
@@ -241,9 +246,13 @@ interface ArticleData {
   source: string;
   title: string;
   passage: string;
-  translationLimit: number;
-  translationUsed: number;
-  translationRemaining: number;
+  readingSessionId: string;
+  wordTranslationLimit: number;
+  wordTranslationUsed: number;
+  wordTranslationRemaining: number;
+  sentenceTranslationLimit: number;
+  sentenceTranslationUsed: number;
+  sentenceTranslationRemaining: number;
   questions: QuestionItem[];
 }
 
@@ -257,6 +266,7 @@ interface CoachResponse {
 
 interface TranslationResponse {
   translatedText: string;
+  contentType: SelectionType;
   limit: number;
   usedCount: number;
   remainingCount: number;
@@ -298,9 +308,13 @@ const article = ref<ArticleData>({
   source: "",
   title: "",
   passage: "",
-  translationLimit: 5,
-  translationUsed: 0,
-  translationRemaining: 5,
+  readingSessionId: "",
+  wordTranslationLimit: 5,
+  wordTranslationUsed: 0,
+  wordTranslationRemaining: 5,
+  sentenceTranslationLimit: 3,
+  sentenceTranslationUsed: 0,
+  sentenceTranslationRemaining: 3,
   questions: [],
 });
 const currentIdx = ref(0);
@@ -348,6 +362,13 @@ const voiceProgress = computed(() => (voiceCountdown.value / VOICE_LIMIT_SECONDS
 const canSubmit = computed(() => {
   if (revealed.value) return true;
   return (!!answerText.value.trim() || !!selectedOption.value) && !submitting.value && !uploading.value;
+});
+
+const canTranslateSelection = computed(() => {
+  if (!activeSelection.value) return false;
+  return activeSelection.value.type === "sentence"
+    ? article.value.sentenceTranslationRemaining > 0
+    : article.value.wordTranslationRemaining > 0;
 });
 
 function splitParagraphIntoSentences(paragraph: string) {
@@ -415,8 +436,11 @@ function chooseSelection(type: SelectionType, text: string) {
 
 async function translateSelection() {
   if (!activeSelection.value || !userId.value) return;
-  if (article.value.translationRemaining <= 0) {
-    uni.showToast({ title: "每篇最多5次翻译机会哦～", icon: "none" });
+  if (!canTranslateSelection.value) {
+    uni.showToast({
+      title: activeSelection.value.type === "sentence" ? "每篇短句翻译最多3次哦～" : "每篇最多5次翻译机会哦～",
+      icon: "none",
+    });
     return;
   }
   translating.value = true;
@@ -424,17 +448,22 @@ async function translateSelection() {
     const res = await post<TranslationResponse>("/reading/translate", {
       userId: userId.value,
       articleId: article.value.articleId,
+      readingSessionId: article.value.readingSessionId,
       contentType: activeSelection.value.type,
       sourceText: activeSelection.value.text,
     });
     if (res.data) {
       selectionTranslation.value = res.data.translatedText;
-      article.value.translationLimit = res.data.limit;
-      article.value.translationUsed = res.data.usedCount;
-      article.value.translationRemaining = res.data.remainingCount;
+      if (res.data.contentType === "sentence") {
+        article.value.sentenceTranslationLimit = res.data.limit;
+        article.value.sentenceTranslationUsed = res.data.usedCount;
+        article.value.sentenceTranslationRemaining = res.data.remainingCount;
+      } else {
+        article.value.wordTranslationLimit = res.data.limit;
+        article.value.wordTranslationUsed = res.data.usedCount;
+        article.value.wordTranslationRemaining = res.data.remainingCount;
+      }
     }
-  } catch (e) {
-    uni.showToast({ title: "翻译失败，请稍后再试", icon: "none" });
   } finally {
     translating.value = false;
   }
@@ -824,6 +853,13 @@ onUnload(() => {
   align-items: center;
 }
 
+.quota-group {
+  display: flex;
+  gap: 10rpx;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .passage-kicker,
 .translation-label,
 .selection-title {
@@ -838,6 +874,11 @@ onUnload(() => {
   background: #f7ead7;
   color: #9a5a12;
   font-size: 22rpx;
+}
+
+.quota-pill.sentence {
+  background: #f7e1ea;
+  color: #9f1239;
 }
 
 .quota-pill.exhausted {

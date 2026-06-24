@@ -51,7 +51,13 @@ function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> 
           data,
         });
         if (statusCode === 200) {
-          resolve(data as ApiResponse<T>);
+          const apiResponse = data as ApiResponse<T>;
+          if (apiResponse.code === 0) {
+            resolve(apiResponse);
+            return;
+          }
+          uni.showToast({ title: apiResponse.message || "请求失败", icon: "none" });
+          reject(new Error(apiResponse.message || "请求失败"));
         } else if (statusCode === 401) {
           clearSession();
           uni.reLaunch({ url: "/pages/home/index" });

@@ -20,6 +20,8 @@ public class ReadingTranslationLog {
 
     private Long articleId;
 
+    private String sessionId;
+
     private String contentType;
 
     private String sourceText;

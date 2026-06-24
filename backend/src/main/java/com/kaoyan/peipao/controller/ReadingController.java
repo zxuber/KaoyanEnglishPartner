@@ -42,6 +42,7 @@ public class ReadingController {
         return Result.ok(readingService.translateSelection(
                 request.getUserId(),
                 request.getArticleId(),
+                request.getReadingSessionId(),
                 request.getContentType(),
                 request.getSourceText()
         ));

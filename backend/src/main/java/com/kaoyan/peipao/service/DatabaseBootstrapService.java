@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -85,11 +86,12 @@ public class DatabaseBootstrapService implements ApplicationRunner {
                   id BIGINT PRIMARY KEY AUTO_INCREMENT,
                   user_id BIGINT NOT NULL,
                   article_id BIGINT NOT NULL,
+                  session_id VARCHAR(64) NOT NULL,
                   content_type VARCHAR(16) NOT NULL,
                   source_text TEXT NOT NULL,
                   translated_text TEXT NOT NULL,
                   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                  KEY idx_reading_translation_user_article (user_id, article_id)
+                  KEY idx_reading_translation_user_article_session (user_id, article_id, session_id)
                 )
                 """,
                 """
@@ -109,6 +111,15 @@ public class DatabaseBootstrapService implements ApplicationRunner {
                 """
         );
         ddlList.forEach(jdbcTemplate::execute);
+        ensureReadingTranslationSessionColumn();
+    }
+
+    private void ensureReadingTranslationSessionColumn() {
+        List<Map<String, Object>> columns = jdbcTemplate.queryForList("SHOW COLUMNS FROM reading_translation_log LIKE 'session_id'");
+        if (columns.isEmpty()) {
+            jdbcTemplate.execute("ALTER TABLE reading_translation_log ADD COLUMN session_id VARCHAR(64) NOT NULL DEFAULT 'legacy'");
+            jdbcTemplate.execute("CREATE INDEX idx_reading_translation_user_article_session ON reading_translation_log (user_id, article_id, session_id)");
+        }
     }
 
     private void seedReadingData() {

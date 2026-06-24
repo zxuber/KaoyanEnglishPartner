@@ -50,6 +50,13 @@
               </view>
               <text class="back-text">{{ item.translation }}</text>
               <view class="back-actions">
+                <view
+                  class="ghost-btn subtle"
+                  :class="{ disabled: reExplainingId === item.id }"
+                  @click.stop="reExplain(item)"
+                >
+                  <text>{{ reExplainingId === item.id ? '解释中...' : '重新解释' }}</text>
+                </view>
                 <view class="ghost-btn" @click.stop="toastReading">
                   <text>阅读</text>
                 </view>
@@ -67,7 +74,7 @@ import { ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { ensureAuthed } from "@/utils/auth";
 import { getUserId } from "@/utils/session";
-import { get } from "@/utils/request";
+import { get, post } from "@/utils/request";
 
 type TabType = "word" | "sentence";
 
@@ -87,6 +94,7 @@ const activeTab = ref<TabType>("word");
 const items = ref<MistakeItem[]>([]);
 const flippedMap = ref<Record<number, boolean>>({});
 const userId = ref<number | null>(null);
+const reExplainingId = ref<number | null>(null);
 
 async function loadItems() {
   if (!userId.value) return;
@@ -120,6 +128,23 @@ function toggleFlip(id: number) {
 
 function toastReading() {
   uni.showToast({ title: "阅读回放功能稍后开放", icon: "none" });
+}
+
+async function reExplain(item: MistakeItem) {
+  if (!userId.value || reExplainingId.value === item.id) return;
+  reExplainingId.value = item.id;
+  try {
+    const res = await post<{ id: number; translation: string }>(`/mistakes/${item.id}/re-explain?userId=${userId.value}`);
+    const nextTranslation = res.data?.translation;
+    if (nextTranslation) {
+      items.value = items.value.map((current) =>
+        current.id === item.id ? { ...current, translation: nextTranslation } : current
+      );
+      uni.showToast({ title: "已重新解释", icon: "none" });
+    }
+  } finally {
+    reExplainingId.value = null;
+  }
 }
 
 onLoad(async () => {
@@ -328,6 +353,9 @@ onShow(async () => {
 
 .back-actions {
   margin-top: 22rpx;
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
 }
 
 .ghost-btn {
@@ -341,5 +369,15 @@ onShow(async () => {
   color: #8a5a2b;
   font-size: 24rpx;
   font-weight: 700;
+}
+
+.ghost-btn.subtle {
+  background: #f4dfe6;
+  color: #9f1239;
+}
+
+.ghost-btn.disabled {
+  background: #ece7e1;
+  color: #9b8e81;
 }
 </style>

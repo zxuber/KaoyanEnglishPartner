@@ -7,6 +7,7 @@ import lombok.Data;
 @Builder
 public class ReadingTranslateResponse {
     private String translatedText;
+    private String contentType;
     private Integer limit;
     private Integer usedCount;
     private Integer remainingCount;

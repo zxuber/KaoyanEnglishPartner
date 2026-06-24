@@ -1,6 +1,7 @@
 package com.kaoyan.peipao.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.kaoyan.peipao.common.BizException;
 import com.kaoyan.peipao.common.ErrorCode;
 import com.kaoyan.peipao.dto.response.ReadingArticleResponse;
 import com.kaoyan.peipao.dto.response.ReadingTranslateResponse;
@@ -17,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -27,21 +30,29 @@ public class ReadingService {
     private final ReadingRecordMapper readingRecordMapper;
     private final ReadingTranslationLogMapper readingTranslationLogMapper;
     private final LLMService llmService;
+    private final TranslationService translationService;
+    private final TokenActionGuardService tokenActionGuardService;
+
+    private static final int WORD_TRANSLATION_LIMIT = 5;
+    private static final int SENTENCE_TRANSLATION_LIMIT = 3;
 
     public ReadingArticleResponse getArticle(Long userId) {
         ReadingArticle article = requireActiveArticle();
         List<ReadingQuestion> questions = readingQuestionMapper.selectByArticleId(article.getId());
-        int usedCount = readingTranslationLogMapper.countByUserAndArticle(userId, article.getId());
-        int limit = article.getTranslationLimit() == null ? 5 : article.getTranslationLimit();
+        String readingSessionId = buildReadingSessionId();
 
         return ReadingArticleResponse.builder()
                 .articleId(article.getArticleKey())
                 .source(article.getSource())
                 .title(article.getTitle())
                 .passage(article.getPassage())
-                .translationLimit(limit)
-                .translationUsed(usedCount)
-                .translationRemaining(Math.max(0, limit - usedCount))
+                .readingSessionId(readingSessionId)
+                .wordTranslationLimit(WORD_TRANSLATION_LIMIT)
+                .wordTranslationUsed(0)
+                .wordTranslationRemaining(WORD_TRANSLATION_LIMIT)
+                .sentenceTranslationLimit(SENTENCE_TRANSLATION_LIMIT)
+                .sentenceTranslationUsed(0)
+                .sentenceTranslationRemaining(SENTENCE_TRANSLATION_LIMIT)
                 .questions(questions.stream().map(this::toQuestionItem).toList())
                 .build();
     }
@@ -56,6 +67,7 @@ public class ReadingService {
     ) {
         ReadingArticle article = requireArticle(articleId);
         ReadingQuestion question = requireQuestion(questionId, article.getId());
+        tokenActionGuardService.guard(userId, "reading-coach", Duration.ofSeconds(4));
 
         String coachReply = llmService.generateReadingCoachReply(
                 article.getTitle(),
@@ -91,20 +103,32 @@ public class ReadingService {
         );
     }
 
-    public ReadingTranslateResponse translateSelection(Long userId, String articleId, String contentType, String sourceText) {
+    public ReadingTranslateResponse translateSelection(Long userId, String articleId, String readingSessionId, String contentType, String sourceText) {
         ReadingArticle article = requireArticle(articleId);
-        int limit = article.getTranslationLimit() == null ? 5 : article.getTranslationLimit();
-        int usedCount = readingTranslationLogMapper.countByUserAndArticle(userId, article.getId());
+        String normalizedContentType = normalizeContentType(contentType);
+        int limit = "sentence".equals(normalizedContentType) ? SENTENCE_TRANSLATION_LIMIT : WORD_TRANSLATION_LIMIT;
+        int usedCount = readingTranslationLogMapper.countByUserAndArticleAndSessionAndType(
+                userId,
+                article.getId(),
+                readingSessionId,
+                normalizedContentType
+        );
         if (usedCount >= limit) {
-            throw new RuntimeException(ErrorCode.READING_TRANSLATION_LIMIT_REACHED.getMessage());
+            throw new BizException("sentence".equals(normalizedContentType)
+                    ? ErrorCode.SENTENCE_TRANSLATION_LIMIT_REACHED
+                    : ErrorCode.READING_TRANSLATION_LIMIT_REACHED);
+        }
+        if (translationService.shouldUseLlm(sourceText.trim(), normalizedContentType)) {
+            tokenActionGuardService.guard(userId, "reading-translate-" + normalizedContentType, Duration.ofSeconds(4));
         }
 
-        String translatedText = llmService.translateSelection(sourceText.trim(), contentType);
+        String translatedText = translationService.translateSelection(sourceText.trim(), normalizedContentType);
 
         ReadingTranslationLog log = new ReadingTranslationLog();
         log.setUserId(userId);
         log.setArticleId(article.getId());
-        log.setContentType(normalizeContentType(contentType));
+        log.setSessionId(readingSessionId);
+        log.setContentType(normalizedContentType);
         log.setSourceText(sourceText.trim());
         log.setTranslatedText(translatedText);
         readingTranslationLogMapper.insert(log);
@@ -112,6 +136,7 @@ public class ReadingService {
         int nextUsedCount = usedCount + 1;
         return ReadingTranslateResponse.builder()
                 .translatedText(translatedText)
+                .contentType(normalizedContentType)
                 .limit(limit)
                 .usedCount(nextUsedCount)
                 .remainingCount(Math.max(0, limit - nextUsedCount))
@@ -159,6 +184,10 @@ public class ReadingService {
 
     private String normalizeContentType(String contentType) {
         return "sentence".equalsIgnoreCase(contentType) ? "sentence" : "word";
+    }
+
+    private String buildReadingSessionId() {
+        return "reading-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
     }
 
     private ReadingArticleResponse.QuestionItem toQuestionItem(ReadingQuestion question) {
