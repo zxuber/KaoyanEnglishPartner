@@ -1,6 +1,6 @@
 # SETUP_AND_RUNTIME.md - 跨平台环境与联调说明
 
-> 最后更新：2026-06-23
+> 最后更新：2026-06-25
 > 用途：统一说明 macOS / Windows 下的运行前置条件、配置入口、真机联调方式。
 
 ---
@@ -77,6 +77,42 @@ Windows PowerShell 示例：
 $env:DEEPSEEK_API_KEY="your-real-key"
 ```
 
+### 数据库初始化脚本
+
+完整初始化入口：
+
+- `backend/docs/database/init_all.sql`
+
+当前会按顺序执行：
+
+- `001_create_user_table.sql`
+- `002_create_word_tables.sql`
+- `003_reassign_word_units.sql`
+- `004_expand_user_profile.sql`
+- `005_create_mistake_asset_tables.sql`
+- `006_seed_mistake_assets.sql`
+
+其中 `005/006` 是 3 tab 分支新增的误解本资产库初始化：
+
+- `mistake_asset_library`：全局资产库
+- `mistake_asset_progress`：用户对资产的 `done` 状态
+- 默认原始数据：`写作表达 / 固定搭配 / 易混词` 各 100 条
+
+新电脑重建数据库时，执行完整初始化脚本即可同步这些原始数据：
+
+```bash
+cd backend/docs/database
+mysql -u root -p kaoyan_peipao < init_all.sql
+```
+
+如果数据库已经存在，只想补误解本资产库：
+
+```bash
+cd backend/docs/database
+mysql -u root -p kaoyan_peipao < migrations/005_create_mistake_asset_tables.sql
+mysql -u root -p kaoyan_peipao < migrations/006_seed_mistake_assets.sql
+```
+
 ### 微信登录与 JWT
 
 当前前后端已经接通正式登录主链路：
@@ -148,6 +184,13 @@ VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 - `frontend/dist/dev/mp-weixin`：开发包，来自 `npm run dev:mp-weixin`，读取 `.env.local`
 - `frontend/dist/build/mp-weixin`：发布包，来自 `npm run build:mp-weixin`，读取 `.env.production`
 - 如果微信开发者工具误打开了 `dist/build/mp-weixin`，即使本地已经切到 `lan`，请求也仍会打到线上域名
+
+3 tab 版本补充：
+
+- 维护分支：`codex/three-tab-training-hub`
+- 微信开发者工具本地联调仍优先打开 `frontend/dist/dev/mp-weixin`
+- 当前 3 tab 信息架构为 `首页 / 误解本 / 英教系统`
+- `英教系统` tab 页内展示全称：`高级智能英语教练系统`
 
 ### 运行时覆盖
 

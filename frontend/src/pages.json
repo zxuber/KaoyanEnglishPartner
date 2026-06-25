@@ -48,8 +48,64 @@
       "style": {
         "navigationBarTitleText": "误解本"
       }
+    },
+    {
+      "path": "pages/tutor/index",
+      "style": {
+        "navigationBarTitleText": "高级智能英语教练系统"
+      }
+    },
+    {
+      "path": "pages/special/index",
+      "style": {
+        "navigationBarTitleText": "写作专项"
+      }
+    },
+    {
+      "path": "pages/translate/index",
+      "style": {
+        "navigationBarTitleText": "翻译专项"
+      }
+    },
+    {
+      "path": "pages/cloze/index",
+      "style": {
+        "navigationBarTitleText": "完形填空"
+      }
+    },
+    {
+      "path": "pages/new-question/index",
+      "style": {
+        "navigationBarTitleText": "新题型"
+      }
     }
   ],
+  "tabBar": {
+    "color": "#8A7F72",
+    "selectedColor": "#9A5A12",
+    "backgroundColor": "#FFFDF8",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/mistake/index",
+        "text": "误解本",
+        "iconPath": "static/tabbar/mistake.png",
+        "selectedIconPath": "static/tabbar/mistake-active.png"
+      },
+      {
+        "pagePath": "pages/tutor/index",
+        "text": "英教系统",
+        "iconPath": "static/tabbar/tutor.png",
+        "selectedIconPath": "static/tabbar/tutor-active.png"
+      }
+    ]
+  },
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "考研英语陪跑",

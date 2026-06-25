@@ -1,7 +1,8 @@
 # DEVELOPMENT_PLAN.md - 分模块开发计划
 
-> 基于 `docs/PRD.md` v1.1  
-> 创建日期：2026-06-20
+> 基于 `docs/PRD.md` v1.3  
+> 创建日期：2026-06-20  
+> 最近更新：2026-06-25（3 tab 分支与误解本资产库）
 
 ---
 
@@ -140,6 +141,8 @@
 | **后端任务** | 1. `POST /api/v1/mistakes` 记录错题+归因标签<br>2. `GET /api/v1/mistakes?type=word|sentence|question` 分类查询<br>3. `PATCH /api/v1/mistakes/{id}/archive` 归档<br>4. `GET /api/v1/mistakes/stats` 归因分布统计（饼图数据） |
 | **验收标准** | 误解本加载 < 1s，分类筛选正确，归档后不再出现在活跃列表 |
 | **预估工时** | 前端 4d + 后端 2d + 测试 2d = 8d |
+
+> 3 tab 分支首版已先落地“轻资产库”方向：底部单独保留 `误解本` tab，现有 `单词/短句` 继续走用户动态误解本；新增 `写作表达/固定搭配/易混词` 走全局资产库 `mistake_asset_library` + 用户进度表 `mistake_asset_progress`。初始化脚本已提供三类各 100 条原始数据，后续可逐步支持用户主动收藏、按来源筛选和跨题型自动沉淀。
 
 ### M9：LLM 接入（长难句拆解 + 错题解析）
 

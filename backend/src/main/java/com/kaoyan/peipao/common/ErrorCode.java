@@ -19,6 +19,7 @@ public enum ErrorCode {
     READING_NOT_FOUND(40403, "阅读篇目不存在"),
     READING_QUESTION_NOT_FOUND(40404, "阅读题目不存在"),
     MISTAKE_ITEM_NOT_FOUND(40405, "误解本条目不存在"),
+    MISTAKE_ASSET_NOT_FOUND(40406, "误解本资产不存在"),
 
     // 500xx: Server errors
     INTERNAL_ERROR(50001, "服务器内部错误"),

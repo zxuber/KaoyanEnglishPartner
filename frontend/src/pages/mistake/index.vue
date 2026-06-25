@@ -1,17 +1,20 @@
 <template>
   <view class="mistake-page">
     <view class="hero">
-      <text class="eyebrow">Misunderstanding Book</text>
+      <text class="eyebrow">MISUNDERSTANDING BOOK</text>
       <text class="title">误解本</text>
-      <text class="sub">把你在阅读里卡住的词和句子单独拎出来，反复翻面复盘。</text>
+      <text class="sub">不只收词和短句，也把可复用的写作表达、固定搭配、易混词收成一份轻资产库。</text>
     </view>
 
     <view class="tabs">
-      <view class="tab" :class="{ active: activeTab === 'word' }" @click="switchTab('word')">
-        <text>单词</text>
-      </view>
-      <view class="tab" :class="{ active: activeTab === 'sentence' }" @click="switchTab('sentence')">
-        <text>短句</text>
+      <view
+        v-for="category in categories"
+        :key="category.key"
+        class="tab"
+        :class="{ active: activeTab === category.key }"
+        @click="switchTab(category.key)"
+      >
+        <text>{{ category.label }}</text>
       </view>
     </view>
 
@@ -20,9 +23,14 @@
     </view>
 
     <template v-else>
+      <view class="category-tip">
+        <text class="category-title">{{ activeCategory.label }}</text>
+        <text class="category-sub">{{ activeCategory.description }}</text>
+      </view>
+
       <view v-if="!items.length" class="empty-card">
-        <text class="empty-title">{{ activeTab === 'word' ? '还没有加入单词' : '还没有加入短句' }}</text>
-        <text class="empty-sub">回到阅读页，点词或点句，再加入误解本。</text>
+        <text class="empty-title">还没有内容</text>
+        <text class="empty-sub">{{ activeCategory.emptyHint }}</text>
       </view>
 
       <view v-else class="card-list">
@@ -37,16 +45,17 @@
           <view class="swipe-main">
             <view
               class="flip-card"
-              :class="{ sentence: activeTab === 'sentence', flipped: flippedMap[item.id] }"
+              :class="{ long: isLongCard, flipped: flippedMap[item.id] }"
               @click="toggleFlip(item.id)"
             >
               <view class="flip-card-inner">
                 <view class="flip-face front">
                   <view class="face-top">
-                    <text class="face-tag">{{ activeTab === 'word' ? 'WORD' : 'SENTENCE' }}</text>
+                    <text class="face-tag">{{ activeCategory.cardTag }}</text>
                     <text class="face-module">{{ item.sourceModule }}</text>
                   </view>
-                  <text class="front-text" :class="{ sentence: activeTab === 'sentence' }">{{ item.sourceText }}</text>
+                  <text class="front-text" :class="{ compact: isLongCard }">{{ item.sourceText }}</text>
+                  <text v-if="item.sourceHint" class="front-hint">{{ item.sourceHint }}</text>
                   <text class="face-tip">点击翻面</text>
                 </view>
 
@@ -56,17 +65,29 @@
                     <text class="face-module">{{ item.sourceModule }}</text>
                   </view>
                   <text class="back-text">{{ item.translation }}</text>
+                  <text v-if="item.note" class="back-note">{{ item.note }}</text>
+
                   <view class="back-actions">
-                    <view
-                      class="ghost-btn subtle"
-                      :class="{ disabled: reExplainingId === item.id }"
-                      @click.stop="reExplain(item)"
-                    >
-                      <text>{{ reExplainingId === item.id ? '解释中...' : '重新解释' }}</text>
-                    </view>
-                    <view class="ghost-btn" @click.stop="toastReading">
-                      <text>阅读</text>
-                    </view>
+                    <template v-if="supportsReExplain">
+                      <view
+                        class="ghost-btn subtle"
+                        :class="{ disabled: reExplainingId === item.id }"
+                        @click.stop="reExplain(item)"
+                      >
+                        <text>{{ reExplainingId === item.id ? '解释中...' : '重新解释' }}</text>
+                      </view>
+                      <view class="ghost-btn" @click.stop="toastReading">
+                        <text>阅读</text>
+                      </view>
+                    </template>
+                    <template v-else>
+                      <view class="ghost-btn subtle" @click.stop="toastSaved">
+                        <text>加入今日复习</text>
+                      </view>
+                      <view class="ghost-btn" @click.stop="toastSource(item)">
+                        <text>看来源</text>
+                      </view>
+                    </template>
                   </view>
                 </view>
               </view>
@@ -82,43 +103,112 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import { ensureAuthed } from "@/utils/auth";
 import { getUserId } from "@/utils/session";
 import { del, get, post } from "@/utils/request";
 
-type TabType = "word" | "sentence";
+type CategoryType = "word" | "sentence" | "writing" | "phrase" | "confusion";
 
 interface MistakeItem {
-  id: number;
-  type: string;
+  id: number | string;
+  type?: string;
+  category?: string;
+  subcategory?: string;
   sourceText: string;
   translation: string;
   sourceModule: string;
-  articleId: string;
-  status: string;
-  createdAt: string;
+  sourceHint?: string;
+  note?: string;
+  articleId?: string;
+  status?: string;
+  createdAt?: string;
 }
 
+interface CategoryMeta {
+  key: CategoryType;
+  label: string;
+  cardTag: string;
+  description: string;
+  emptyHint: string;
+}
+
+const categories: CategoryMeta[] = [
+  {
+    key: "word",
+    label: "单词",
+    cardTag: "WORD",
+    description: "阅读里卡住的高频词，继续保留真实误解本数据。",
+    emptyHint: "回到阅读页，短按选词后加入误解本。",
+  },
+  {
+    key: "sentence",
+    label: "短句",
+    cardTag: "SENTENCE",
+    description: "阅读里真正没吃透的句子，优先做整句复盘。",
+    emptyHint: "回到阅读页，长按选句后加入误解本。",
+  },
+  {
+    key: "writing",
+    label: "写作表达",
+    cardTag: "WRITING",
+    description: "把可直接复用到大小作文里的表达拆开收纳。",
+    emptyHint: "这里后续会叠加你的写作收藏与系统精选表达。",
+  },
+  {
+    key: "phrase",
+    label: "固定搭配",
+    cardTag: "PHRASE",
+    description: "比单词更接近考试实战的短语资产，适合集中翻卡。",
+    emptyHint: "这里后续会叠加阅读、翻译、完形中的高频固定搭配。",
+  },
+  {
+    key: "confusion",
+    label: "易混词",
+    cardTag: "CONFUSION",
+    description: "专门留给总是容易混掉的一组词或表达。",
+    emptyHint: "这里后续会叠加系统自动识别出的易混项。",
+  },
+];
+
 const loading = ref(true);
-const activeTab = ref<TabType>("word");
+const activeTab = ref<CategoryType>("word");
 const items = ref<MistakeItem[]>([]);
-const flippedMap = ref<Record<number, boolean>>({});
+const flippedMap = ref<Record<string | number, boolean>>({});
 const userId = ref<number | null>(null);
-const reExplainingId = ref<number | null>(null);
-const swipedId = ref<number | null>(null);
+const reExplainingId = ref<number | string | null>(null);
+const swipedId = ref<number | string | null>(null);
 const touchStartX = ref(0);
 
+const activeCategory = computed(() => categories.find((item) => item.key === activeTab.value) || categories[0]);
+const supportsReExplain = computed(() => activeTab.value === "word" || activeTab.value === "sentence");
+const isLongCard = computed(() => activeTab.value !== "word");
+
 async function loadItems() {
-  if (!userId.value) return;
   loading.value = true;
   try {
-    const res = await get<MistakeItem[]>("/mistakes", {
-      userId: userId.value,
-      type: activeTab.value,
-    });
-    items.value = res.data || [];
+    if (supportsReExplain.value) {
+      if (!userId.value) {
+        items.value = [];
+        return;
+      }
+      const res = await get<MistakeItem[]>("/mistakes", {
+        userId: userId.value,
+        type: activeTab.value,
+      });
+      items.value = res.data || [];
+    } else {
+      if (!userId.value) {
+        items.value = [];
+        return;
+      }
+      const res = await get<MistakeItem[]>("/mistake-assets", {
+        userId: userId.value,
+        category: activeTab.value,
+      });
+      items.value = res.data || [];
+    }
     flippedMap.value = {};
   } catch (e) {
     uni.showToast({ title: "误解本加载失败", icon: "none" });
@@ -127,13 +217,14 @@ async function loadItems() {
   }
 }
 
-function switchTab(tab: TabType) {
+function switchTab(tab: CategoryType) {
   if (activeTab.value === tab) return;
   activeTab.value = tab;
+  swipedId.value = null;
   loadItems();
 }
 
-function toggleFlip(id: number) {
+function toggleFlip(id: number | string) {
   if (swipedId.value === id) return;
   flippedMap.value = {
     ...flippedMap.value,
@@ -145,8 +236,16 @@ function toastReading() {
   uni.showToast({ title: "阅读回放功能稍后开放", icon: "none" });
 }
 
+function toastSaved() {
+  uni.showToast({ title: "已加入今日复习候选", icon: "none" });
+}
+
+function toastSource(item: MistakeItem) {
+  uni.showToast({ title: `来源：${item.sourceModule}`, icon: "none" });
+}
+
 async function reExplain(item: MistakeItem) {
-  if (!userId.value || reExplainingId.value === item.id) return;
+  if (!userId.value || reExplainingId.value === item.id || !supportsReExplain.value) return;
   reExplainingId.value = item.id;
   try {
     const res = await post<{ id: number; translation: string }>(`/mistakes/${item.id}/re-explain?userId=${userId.value}`);
@@ -162,14 +261,14 @@ async function reExplain(item: MistakeItem) {
   }
 }
 
-function onTouchStart(id: number, event: any) {
+function onTouchStart(id: number | string, event: any) {
   touchStartX.value = event.changedTouches?.[0]?.clientX || 0;
   if (swipedId.value && swipedId.value !== id) {
     swipedId.value = null;
   }
 }
 
-function onTouchEnd(id: number, event: any) {
+function onTouchEnd(id: number | string, event: any) {
   const endX = event.changedTouches?.[0]?.clientX || 0;
   const deltaX = endX - touchStartX.value;
   if (deltaX < -50) {
@@ -180,12 +279,18 @@ function onTouchEnd(id: number, event: any) {
 }
 
 async function markDone(item: MistakeItem) {
-  if (!userId.value) return;
-  await del(`/mistakes/${item.id}`, { userId: userId.value });
+  if (supportsReExplain.value) {
+    if (!userId.value) return;
+    await del(`/mistakes/${item.id}`, { userId: userId.value });
+    uni.showToast({ title: "已移出误解本", icon: "none" });
+  } else {
+    if (!userId.value) return;
+    await del(`/mistake-assets/${item.id}`, { userId: userId.value });
+    uni.showToast({ title: "已从当前列表隐藏", icon: "none" });
+  }
   items.value = items.value.filter((current) => current.id !== item.id);
   delete flippedMap.value[item.id];
   swipedId.value = null;
-  uni.showToast({ title: "已移出误解本", icon: "none" });
 }
 
 onLoad(async () => {
@@ -218,7 +323,8 @@ onShow(async () => {
 .hero,
 .tabs,
 .state-card,
-.empty-card {
+.empty-card,
+.category-tip {
   background: rgba(255, 255, 255, 0.9);
   border-radius: 28rpx;
   border: 1rpx solid rgba(255, 255, 255, 0.65);
@@ -254,20 +360,20 @@ onShow(async () => {
 }
 
 .tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 12rpx;
   margin-top: 18rpx;
   padding: 12rpx;
 }
 
 .tab {
-  flex: 1;
   text-align: center;
   padding: 18rpx 0;
   border-radius: 999rpx;
   background: #f7e5eb;
   color: #8a4557;
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 700;
 }
 
@@ -277,11 +383,13 @@ onShow(async () => {
 }
 
 .state-card,
-.empty-card {
+.empty-card,
+.category-tip {
   margin-top: 18rpx;
-  padding: 34rpx 28rpx;
+  padding: 30rpx 28rpx;
 }
 
+.category-title,
 .empty-title {
   display: block;
   font-size: 30rpx;
@@ -289,6 +397,7 @@ onShow(async () => {
   color: #3d1f27;
 }
 
+.category-sub,
 .empty-sub {
   display: block;
   margin-top: 12rpx;
@@ -311,16 +420,16 @@ onShow(async () => {
   background: transparent;
 }
 
+.swipe-row.opened .swipe-main {
+  transform: translateX(-136rpx);
+}
+
 .swipe-main {
   position: relative;
   z-index: 2;
   transform: translateX(0);
   transition: transform 0.25s ease;
   background: transparent;
-}
-
-.swipe-row.opened .swipe-main {
-  transform: translateX(-136rpx);
 }
 
 .swipe-action {
@@ -356,8 +465,8 @@ onShow(async () => {
   transition: transform 0.5s ease;
 }
 
-.flip-card.sentence .flip-card-inner {
-  min-height: 360rpx;
+.flip-card.long .flip-card-inner {
+  min-height: 380rpx;
 }
 
 .flip-card.flipped .flip-card-inner {
@@ -425,17 +534,33 @@ onShow(async () => {
   color: #2d2325;
 }
 
-.front-text.sentence,
+.front-text.compact,
 .back-text {
   font-size: 28rpx;
   line-height: 1.75;
   font-weight: 700;
 }
 
+.front-hint,
+.back-note,
 .face-tip {
   display: block;
-  margin-top: 24rpx;
   font-size: 22rpx;
+  line-height: 1.55;
+}
+
+.front-hint {
+  margin-top: 16rpx;
+  color: #7e676d;
+}
+
+.back-note {
+  margin-top: 16rpx;
+  color: #8a6b55;
+}
+
+.face-tip {
+  margin-top: 24rpx;
   color: #997981;
 }
 
@@ -454,7 +579,7 @@ onShow(async () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 160rpx;
+  min-width: 180rpx;
   padding: 16rpx 26rpx;
   border-radius: 999rpx;
   background: #f3e4d2;

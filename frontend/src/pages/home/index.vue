@@ -2,9 +2,9 @@
   <view class="home">
     <view class="hero">
       <view class="hero-copy">
-        <text class="eyebrow">Today</text>
-        <text class="h1">今日训练</text>
-        <text class="sub">{{ dashboard.greeting || '先把今天最重要的 1 到 3 件事做掉。' }}</text>
+        <text class="eyebrow">TODAY'S RUN</text>
+        <text class="h1">训练中枢</text>
+        <text class="sub">{{ dashboard.greeting || '先把今天最关键的训练做完，再决定要不要扩项。' }}</text>
       </view>
       <view class="hero-pill" @click="doCheckin">
         <text>{{ checkedIn ? '已打卡' : '今日打卡' }}</text>
@@ -12,23 +12,20 @@
     </view>
 
     <view v-if="loading" class="loading-card">
-      <text>正在整理你的今日训练...</text>
+      <text>正在整理你的训练入口...</text>
     </view>
 
     <template v-else>
       <view class="continue-card" @click="goPage(dashboard.continueTraining?.page || '/pages/word/index')">
         <view class="continue-top">
           <text class="continue-tag">继续上次训练</text>
-          <text class="continue-module">{{ dashboard.continueTraining?.module }}</text>
+          <text class="continue-module">{{ dashboard.continueTraining?.module || '今日主线' }}</text>
         </view>
-        <text class="continue-title">{{ dashboard.continueTraining?.title }}</text>
+        <text class="continue-title">{{ dashboard.continueTraining?.title || '回到你上次中断的训练' }}</text>
         <text v-if="dashboard.continueTraining?.subtitle" class="continue-sub">{{ dashboard.continueTraining?.subtitle }}</text>
         <view class="continue-progress">
           <view class="continue-bar">
-            <view
-              class="continue-fill"
-              :style="{ width: continuePercent + '%' }"
-            ></view>
+            <view class="continue-fill" :style="{ width: continuePercent + '%' }"></view>
           </view>
           <text class="continue-metric">{{ dashboard.continueTraining?.progressCurrent || 0 }} / {{ dashboard.continueTraining?.progressTotal || 0 }}</text>
         </view>
@@ -51,8 +48,8 @@
 
       <view class="section">
         <view class="section-head">
-          <text class="sec-title">今日训练</text>
-          <text class="sec-sub">系统按你的学习画像和最近状态推荐</text>
+          <text class="sec-title">今日推荐</text>
+          <text class="sec-sub">先做系统建议的 2 到 3 件事，不要让首页变成功能超市</text>
         </view>
         <view
           v-for="task in dashboard.todayTasks"
@@ -71,18 +68,34 @@
 
       <view class="section">
         <view class="section-head">
-          <text class="sec-title">专项入口</text>
-          <text class="sec-sub">你也可以自由切换训练模块</text>
+          <text class="sec-title">专项训练</text>
+          <text class="sec-sub">阅读、翻译、完形、新题型直接进入，写作再拆成大作文和小作文</text>
         </view>
-        <view class="quick-grid">
-          <view
-            v-for="entry in dashboard.quickEntries"
-            :key="entry.title"
-            class="quick-card"
-            @click="goPage(entry.page)"
-          >
-            <text class="quick-title">{{ entry.title }}</text>
-            <text class="quick-sub">{{ entry.subtitle }}</text>
+        <view class="special-grid">
+          <view v-for="entry in specialEntries" :key="entry.title" class="special-card" :class="[entry.skin, { wide: entry.wide }]" @click="goPage(entry.page)">
+            <text class="special-title">{{ entry.title }}</text>
+            <text class="special-sub">{{ entry.subtitle }}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="section">
+        <view class="section-head">
+          <text class="sec-title">工具与检测</text>
+          <text class="sec-sub">复盘资产和阶段检测放在主训练流之外，但随时可进</text>
+        </view>
+        <view class="tool-list">
+          <view class="tool-card" @click="switchTabPage('/pages/mistake/index')">
+            <text class="tool-title">误解本</text>
+            <text class="tool-sub">单词、短句、写作表达、固定搭配、易混词</text>
+          </view>
+          <view class="tool-card accent" @click="switchTabPage('/pages/tutor/index')">
+            <text class="tool-title">高级智能英语教练系统</text>
+            <text class="tool-sub">今日诊断、提分方案、主题词库、专项纠偏</text>
+          </view>
+          <view class="tool-card" @click="goPage('/pages/exam/index')">
+            <text class="tool-title">模考</text>
+            <text class="tool-sub">阶段性套卷检查，后续可承接正式模考链路</text>
           </view>
         </view>
       </view>
@@ -90,7 +103,7 @@
       <view class="section">
         <view class="section-head">
           <text class="sec-title">最近复盘</text>
-          <text class="sec-sub">别只看正确率，先看你最容易掉队的地方</text>
+          <text class="sec-sub">不只看做了多少，也看最近最容易掉队在哪</text>
         </view>
         <view class="review-card">
           <view v-for="item in dashboard.reviewItems" :key="item.label" class="review-line">
@@ -129,7 +142,6 @@ interface DashboardData {
     progressTotal?: number;
   };
   todayTasks?: Array<{ title: string; subtitle: string; reason: string; page: string; badge: string; accent?: string }>;
-  quickEntries?: Array<{ title: string; subtitle: string; page: string }>;
   reviewItems?: Array<{ label: string; value: string; hint: string }>;
   stats?: { masteredWords?: number; totalCheckins?: number; targetScore?: number };
 }
@@ -138,6 +150,16 @@ const dashboard = ref<DashboardData>({});
 const loading = ref(true);
 const checkedIn = ref(false);
 const days = ref(0);
+
+const specialEntries = [
+  { title: '阅读', subtitle: '阅读理解 · 定位与排错', page: '/pages/reading/index', skin: 'reading' },
+  { title: '写作', subtitle: '小作文 / 大作文', page: '/pages/special/index', skin: 'writing' },
+  { title: '翻译', subtitle: '断句、主干、整句翻译', page: '/pages/translate/index', skin: 'translate' },
+  { title: '完形填空', subtitle: '逻辑、搭配、上下文判断', page: '/pages/cloze/index', skin: 'cloze' },
+  { title: '新题型', subtitle: '排序题、7选五、小标题等', page: '/pages/new-question/index', skin: 'new-question', wide: true },
+];
+
+const tabPages = new Set(['/pages/home/index', '/pages/mistake/index', '/pages/tutor/index']);
 
 const continuePercent = computed(() => {
   const current = dashboard.value.continueTraining?.progressCurrent || 0;
@@ -210,7 +232,18 @@ onShow(async () => {
   } catch (e) {}
 });
 
-function goPage(url: string) { uni.navigateTo({ url }); }
+function goPage(url: string) {
+  if (tabPages.has(url)) {
+    uni.switchTab({ url });
+    return;
+  }
+  uni.navigateTo({ url });
+}
+
+function switchTabPage(url: string) {
+  uni.switchTab({ url });
+}
+
 function goOnboarding() { uni.navigateTo({ url: '/pages/onboarding/index?review=1' }); }
 async function doCheckin() {
   if (checkedIn.value) return;
@@ -231,7 +264,7 @@ async function doCheckin() {
 </script>
 
 <style scoped>
-.home { min-height: 100vh; padding: 36rpx 28rpx 60rpx; background:
+.home { min-height: 100vh; padding: 36rpx 28rpx 80rpx; background:
   radial-gradient(circle at top left, rgba(9, 71, 67, 0.14), transparent 34%),
   linear-gradient(180deg, #f4f1e9 0%, #f7f4ef 28%, #f5f3ee 100%); }
 .hero { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28rpx; padding-top: 24rpx; }
@@ -240,14 +273,9 @@ async function doCheckin() {
 .h1 { display: block; font-size: 56rpx; line-height: 1.06; font-weight: 800; color: #18302b; }
 .sub { display: block; margin-top: 14rpx; font-size: 26rpx; line-height: 1.6; color: #5d5a54; }
 .hero-pill { padding: 18rpx 24rpx; border-radius: 999rpx; background: rgba(255,255,255,0.7); backdrop-filter: blur(16rpx); box-shadow: 0 12rpx 30rpx rgba(24,48,43,0.08); color: #18302b; font-size: 24rpx; font-weight: 600; }
-.loading-card,
-.continue-card,
-.task-card,
-.review-card,
-.quick-card,
-.stat-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(18rpx); box-shadow: 0 20rpx 40rpx rgba(31, 41, 35, 0.07); border: 1rpx solid rgba(255,255,255,0.55); }
+.loading-card,.continue-card,.task-card,.review-card,.special-card,.stat-card,.tool-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(18rpx); box-shadow: 0 20rpx 40rpx rgba(31, 41, 35, 0.07); border: 1rpx solid rgba(255,255,255,0.55); }
 .loading-card { padding: 40rpx; border-radius: 28rpx; color: #5d5a54; text-align: center; }
-.continue-card { padding: 30rpx; border-radius: 32rpx; margin-bottom: 24rpx; background: linear-gradient(135deg, #163c37 0%, #245a52 100%); color: #f7f5ef; }
+.continue-card { padding: 30rpx; border-radius: 32rpx; margin-bottom: 24rpx; background: linear-gradient(135deg, #5b392c 0%, #8a5a43 100%); color: #f7f5ef; }
 .continue-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18rpx; }
 .continue-tag { font-size: 22rpx; padding: 10rpx 16rpx; border-radius: 999rpx; background: rgba(255,255,255,0.16); }
 .continue-module { font-size: 22rpx; opacity: 0.8; }
@@ -271,10 +299,21 @@ async function doCheckin() {
 .task-title { flex: 1; font-size: 30rpx; font-weight: 700; color: #1f2c28; }
 .task-sub { display: block; font-size: 24rpx; color: #574f45; line-height: 1.55; }
 .task-reason { display: block; margin-top: 12rpx; font-size: 22rpx; color: #8c816f; line-height: 1.5; }
-.quick-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14rpx; }
-.quick-card { min-height: 154rpx; padding: 24rpx; border-radius: 24rpx; display: flex; flex-direction: column; justify-content: space-between; }
-.quick-title { font-size: 30rpx; font-weight: 700; color: #1f2c28; }
-.quick-sub { font-size: 22rpx; color: #7a7166; line-height: 1.45; }
+.special-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14rpx; }
+.special-card { min-height: 154rpx; padding: 24rpx; border-radius: 24rpx; display: flex; flex-direction: column; justify-content: space-between; }
+.special-card.reading { background: linear-gradient(180deg, #fff7ed 0%, #fffdf9 100%); }
+.special-card.writing { background: linear-gradient(180deg, #fff4f7 0%, #fffdfb 100%); }
+.special-card.translate { background: linear-gradient(180deg, #f4fbff 0%, #fffefe 100%); }
+.special-card.cloze { background: linear-gradient(180deg, #f6f5ff 0%, #fffefe 100%); }
+.special-card.new-question { background: linear-gradient(180deg, #eefbf5 0%, #fffefe 100%); }
+.special-card.wide { grid-column: 1 / -1; min-height: 138rpx; }
+.special-title { font-size: 30rpx; font-weight: 700; color: #1f2c28; }
+.special-sub { font-size: 22rpx; color: #7a7166; line-height: 1.45; }
+.tool-list { display:flex; flex-direction:column; gap:14rpx; }
+.tool-card { padding:24rpx; border-radius:24rpx; }
+.tool-card.accent { background: linear-gradient(135deg, #fff1f6 0%, #fffaf9 100%); }
+.tool-title { display:block; font-size:30rpx; font-weight:700; color:#1f2c28; }
+.tool-sub { display:block; margin-top:10rpx; font-size:22rpx; line-height:1.55; color:#7a7166; }
 .review-card { padding: 10rpx 24rpx; border-radius: 28rpx; }
 .review-line { display: flex; justify-content: space-between; gap: 18rpx; padding: 22rpx 0; border-bottom: 1rpx solid rgba(31,44,40,0.08); }
 .review-line:last-child { border-bottom: 0; }

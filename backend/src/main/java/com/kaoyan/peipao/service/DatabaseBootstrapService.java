@@ -108,6 +108,38 @@ public class DatabaseBootstrapService implements ApplicationRunner {
                   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                   KEY idx_mistake_user_type (user_id, type, status)
                 )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS mistake_asset_library (
+                  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                  category VARCHAR(32) NOT NULL,
+                  subcategory VARCHAR(64) DEFAULT '',
+                  source_text VARCHAR(255) NOT NULL,
+                  translation VARCHAR(500) NOT NULL,
+                  source_hint VARCHAR(255) DEFAULT '',
+                  note VARCHAR(500) DEFAULT '',
+                  example_en VARCHAR(500) DEFAULT '',
+                  example_zh VARCHAR(500) DEFAULT '',
+                  source_module VARCHAR(64) DEFAULT '系统资产库',
+                  sort_order INT DEFAULT 0,
+                  active TINYINT DEFAULT 1,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  UNIQUE KEY uk_mistake_asset_category_sub_text (category, subcategory, source_text),
+                  KEY idx_mistake_asset_category_active (category, active, sort_order)
+                )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS mistake_asset_progress (
+                  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                  user_id BIGINT NOT NULL,
+                  asset_id BIGINT NOT NULL,
+                  status VARCHAR(16) DEFAULT 'active',
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  UNIQUE KEY uk_mistake_asset_progress_user_asset (user_id, asset_id),
+                  KEY idx_mistake_asset_progress_user_status (user_id, status)
+                )
                 """
         );
         ddlList.forEach(jdbcTemplate::execute);
