@@ -125,7 +125,7 @@ public class DatabaseBootstrapService implements ApplicationRunner {
                   active TINYINT DEFAULT 1,
                   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                  UNIQUE KEY uk_mistake_asset_category_sub_text (category, subcategory, source_text),
+                  UNIQUE KEY uk_mistake_asset_category_text (category, source_text),
                   KEY idx_mistake_asset_category_active (category, active, sort_order)
                 )
                 """,

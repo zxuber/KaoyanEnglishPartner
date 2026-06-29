@@ -2,8 +2,10 @@ package com.kaoyan.peipao.controller;
 
 import com.kaoyan.peipao.common.Result;
 import com.kaoyan.peipao.dto.request.AddMistakeItemRequest;
+import com.kaoyan.peipao.dto.response.MistakeDoneResponse;
 import com.kaoyan.peipao.dto.response.MistakeItemResponse;
 import com.kaoyan.peipao.dto.response.MistakeReExplainResponse;
+import com.kaoyan.peipao.service.MistakeDoneService;
 import com.kaoyan.peipao.service.MistakeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,7 @@ import java.util.List;
 public class MistakeController {
 
     private final MistakeService mistakeService;
+    private final MistakeDoneService mistakeDoneService;
 
     @GetMapping
     public Result<List<MistakeItemResponse>> getMistakes(
@@ -24,6 +27,11 @@ public class MistakeController {
             @RequestParam String type
     ) {
         return Result.ok(mistakeService.listByType(userId, type));
+    }
+
+    @GetMapping("/done")
+    public Result<List<MistakeDoneResponse>> getDoneMistakes(@RequestParam Long userId) {
+        return Result.ok(mistakeDoneService.listDone(userId));
     }
 
     @PostMapping

@@ -154,6 +154,24 @@ journalctl -u kaoyan-backend.service -n 100 --no-pager
 journalctl -u kaoyan-backend.service -f
 ```
 
+### 查看后端业务日志文件
+
+后端已使用 `Log4j2` 输出业务日志：
+
+- 默认目录：后端进程工作目录下的 `logs`
+- 主文件：`logs/info.log`
+- 按天滚动：`logs/info-YYYY-MM-DD.log.gz`
+
+如果 systemd 中配置了 `APP_LOG_DIR=/var/log/kaoyan-peipao`，则日志位置为：
+
+```bash
+tail -n 200 /var/log/kaoyan-peipao/info.log
+tail -f /var/log/kaoyan-peipao/info.log
+ls -lh /var/log/kaoyan-peipao
+```
+
+每条请求会带 `X-Request-Id`，同一次请求的请求日志、业务日志、异常日志可以通过同一个 requestId 串起来排查。
+
 ### 查看 8080 是否监听
 
 ```bash

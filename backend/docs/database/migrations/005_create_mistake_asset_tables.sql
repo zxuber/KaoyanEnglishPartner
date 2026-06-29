@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS `mistake_asset_library` (
     `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_mistake_asset_category_sub_text` (`category`, `subcategory`, `source_text`),
+    UNIQUE KEY `uk_mistake_asset_category_text` (`category`, `source_text`),
     KEY `idx_mistake_asset_category_active` (`category`, `active`, `sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='误解本全局资产库';
 

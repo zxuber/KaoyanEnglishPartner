@@ -43,10 +43,10 @@ public class WordJudgeService {
                 }
                 loaded++;
             }
-            log.info("[SynonymDict] loaded {} synonym groups, {} unique words",
+            log.info("[同义词词典] loaded {} synonym groups, {} unique words",
                     loaded, synonymDict.size());
         } catch (Exception e) {
-            log.error("[SynonymDict] failed to load cilin.txt, synonym check will be disabled", e);
+            log.error("[同义词词典] failed to load cilin.txt, synonym check will be disabled", e);
         }
     }
 
@@ -63,55 +63,55 @@ public class WordJudgeService {
 
     public boolean judge(String standardMeaning, String userAnswer) {
         if (userAnswer == null || userAnswer.trim().isEmpty()) {
-            log.info("[Judge] empty answer -> false");
+            log.info("[单词判题] empty answer -> false");
             return false;
         }
 
         String std = normalize(standardMeaning);
         String ans = normalize(userAnswer);
-        log.info("[Judge] raw meaning=[{}] normalized=[{}] | raw answer=[{}] normalized=[{}]",
+        log.info("[单词判题] raw meaning=[{}] normalized=[{}] | raw answer=[{}] normalized=[{}]",
                 standardMeaning, std, userAnswer, ans);
 
         // 1. direct contains check
         if (std.contains(ans)) {
-            log.info("[Judge] std contains ans -> true");
+            log.info("[单词判题] std contains ans -> true");
             return true;
         }
         if (ans.contains(std)) {
-            log.info("[Judge] ans contains std -> true");
+            log.info("[单词判题] ans contains std -> true");
             return true;
         }
 
         // 2. keyword extraction
         List<String> keywords = extractKeywords(standardMeaning);
-        log.info("[Judge] keywords: {}", keywords);
+        log.info("[单词判题] keywords: {}", keywords);
 
         for (String kw : keywords) {
             if (ans.contains(kw)) {
-                log.info("[Judge] keyword [{}] in answer -> true", kw);
+                log.info("[单词判题] keyword [{}] in answer -> true", kw);
                 return true;
             }
             if (isSynonym(kw, ans)) {
-                log.info("[Judge] synonym of [{}] in answer -> true", kw);
+                log.info("[单词判题] synonym of [{}] in answer -> true", kw);
                 return true;
             }
             if (partialOverlap(kw, ans)) {
-                log.info("[Judge] partial overlap [{}] <-> answer -> true", kw);
+                log.info("[单词判题] partial overlap [{}] <-> answer -> true", kw);
                 return true;
             }
             if (editDistanceSimilar(kw, ans)) {
-                log.info("[Judge] edit-dist on [{}] -> true", kw);
+                log.info("[单词判题] edit-dist on [{}] -> true", kw);
                 return true;
             }
         }
 
         // 3. overall edit distance
         if (editDistanceSimilar(std, ans)) {
-            log.info("[Judge] overall edit distance -> true");
+            log.info("[单词判题] overall edit distance -> true");
             return true;
         }
 
-        log.info("[Judge] no match -> false");
+        log.info("[单词判题] no match -> false");
         return false;
     }
 

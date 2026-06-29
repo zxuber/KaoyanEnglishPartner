@@ -14,6 +14,7 @@ import com.kaoyan.peipao.mapper.ReadingQuestionMapper;
 import com.kaoyan.peipao.mapper.ReadingRecordMapper;
 import com.kaoyan.peipao.mapper.ReadingTranslationLogMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.time.Duration;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReadingService {
@@ -40,6 +42,8 @@ public class ReadingService {
         ReadingArticle article = requireActiveArticle();
         List<ReadingQuestion> questions = readingQuestionMapper.selectByArticleId(article.getId());
         String readingSessionId = buildReadingSessionId();
+        log.info("[阅读] article loaded userId={}, articleKey={}, articleDbId={}, questions={}, sessionId={}",
+                userId, article.getArticleKey(), article.getId(), questions.size(), readingSessionId);
 
         return ReadingArticleResponse.builder()
                 .articleId(article.getArticleKey())
@@ -67,6 +71,13 @@ public class ReadingService {
     ) {
         ReadingArticle article = requireArticle(articleId);
         ReadingQuestion question = requireQuestion(questionId, article.getId());
+        log.info("[阅读教练] start userId={}, articleId={}, questionId={}, selectedOption={}, turn={}, answerChars={}",
+                userId,
+                articleId,
+                questionId,
+                selectedOption,
+                turn,
+                userAnswer == null ? 0 : userAnswer.length());
         tokenActionGuardService.guard(userId, "reading-coach", Duration.ofSeconds(4));
 
         String coachReply = llmService.generateReadingCoachReply(
@@ -93,6 +104,8 @@ public class ReadingService {
         record.setTurn(turn);
         record.setRevealAnswer(reveal ? 1 : 0);
         readingRecordMapper.insert(record);
+        log.info("[阅读教练] saved record userId={}, articleDbId={}, questionDbId={}, recordId={}, revealAnswer={}",
+                userId, article.getId(), question.getId(), record.getId(), reveal);
 
         return Map.of(
                 "coachReply", coachReply,
@@ -113,25 +126,40 @@ public class ReadingService {
                 readingSessionId,
                 normalizedContentType
         );
+        log.info("[阅读翻译] request userId={}, articleId={}, sessionId={}, contentType={}, used={}/{}, textChars={}",
+                userId,
+                articleId,
+                readingSessionId,
+                normalizedContentType,
+                usedCount,
+                limit,
+                sourceText == null ? 0 : sourceText.trim().length());
         if (usedCount >= limit) {
+            log.warn("[阅读翻译] limit reached userId={}, articleId={}, sessionId={}, contentType={}, used={}, limit={}",
+                    userId, articleId, readingSessionId, normalizedContentType, usedCount, limit);
             throw new BizException("sentence".equals(normalizedContentType)
                     ? ErrorCode.SENTENCE_TRANSLATION_LIMIT_REACHED
                     : ErrorCode.READING_TRANSLATION_LIMIT_REACHED);
         }
         if (translationService.shouldUseLlm(sourceText.trim(), normalizedContentType)) {
+            log.info("[阅读翻译] LLM required userId={}, contentType={}", userId, normalizedContentType);
             tokenActionGuardService.guard(userId, "reading-translate-" + normalizedContentType, Duration.ofSeconds(4));
+        } else {
+            log.info("[阅读翻译] local dictionary can satisfy translation userId={}, contentType={}", userId, normalizedContentType);
         }
 
         String translatedText = translationService.translateSelection(sourceText.trim(), normalizedContentType);
 
-        ReadingTranslationLog log = new ReadingTranslationLog();
-        log.setUserId(userId);
-        log.setArticleId(article.getId());
-        log.setSessionId(readingSessionId);
-        log.setContentType(normalizedContentType);
-        log.setSourceText(sourceText.trim());
-        log.setTranslatedText(translatedText);
-        readingTranslationLogMapper.insert(log);
+        ReadingTranslationLog translationLog = new ReadingTranslationLog();
+        translationLog.setUserId(userId);
+        translationLog.setArticleId(article.getId());
+        translationLog.setSessionId(readingSessionId);
+        translationLog.setContentType(normalizedContentType);
+        translationLog.setSourceText(sourceText.trim());
+        translationLog.setTranslatedText(translatedText);
+        readingTranslationLogMapper.insert(translationLog);
+        log.info("[阅读翻译] saved logId={}, userId={}, articleDbId={}, contentType={}, nextUsed={}/{}",
+                translationLog.getId(), userId, article.getId(), normalizedContentType, usedCount + 1, limit);
 
         int nextUsedCount = usedCount + 1;
         return ReadingTranslateResponse.builder()

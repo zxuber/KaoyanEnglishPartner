@@ -52,12 +52,12 @@ public class LLMService {
                         .mapToInt(PlanResponse.ScoreItem::getTargetScore).sum();
                 int userTarget = (int) userProfile.get("targetScore");
                 if (Math.abs(totalTarget - userTarget) <= 3) {
-                    log.info("Plan OK attempt={}, total={}, target={}", attempt, totalTarget, userTarget);
+                    log.info("[大模型] 方案生成成功 attempt={}, total={}, target={}", attempt, totalTarget, userTarget);
                     return plan;
                 }
-                log.warn("Plan validation failed: total={}, target={}", totalTarget, userTarget);
+                log.warn("[大模型] 方案校验失败 total={}, target={}", totalTarget, userTarget);
             } catch (Exception e) {
-                log.error("LLM attempt {} failed: {}", attempt, e.getMessage());
+                log.error("[大模型] 第{}次调用失败: {}", attempt, e.getMessage());
                 if (attempt == 3) return buildFallbackPlan(userProfile);
             }
         }
@@ -115,7 +115,7 @@ public class LLMService {
         try {
             return callDeepSeekText(prompt, "你是一个考研英语阅读教练。输出简短中文引导，不要输出 JSON。");
         } catch (Exception e) {
-            log.warn("Reading coach fallback triggered: {}", e.getMessage());
+            log.warn("[大模型] 阅读教练降级: {}", e.getMessage());
             return switch (turn) {
                 case 1 -> "先别急着选答案，你先说说题干问的是主旨、细节还是作者态度？对应信息大概落在哪一段？";
                 case 2 -> "继续往前推一步：把你锁定的那一句原文复述出来，再说它为什么能支撑你的判断。";
@@ -143,7 +143,7 @@ public class LLMService {
         try {
             return callDeepSeekText(prompt, "你是一个精简的英汉翻译助手，只输出中文结果。");
         } catch (Exception e) {
-            log.warn("Translate fallback triggered: {}", e.getMessage());
+            log.warn("[大模型] 翻译降级: {}", e.getMessage());
             return "暂未获取翻译，请稍后重试";
         }
     }

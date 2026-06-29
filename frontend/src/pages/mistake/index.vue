@@ -1,5 +1,5 @@
 <template>
-  <view class="mistake-page">
+  <view class="mistake-page" :class="{ 'done-mode': activeTab === 'done' }">
     <view class="hero">
       <text class="eyebrow">MISUNDERSTANDING BOOK</text>
       <text class="title">误解本</text>
@@ -11,7 +11,7 @@
         v-for="category in categories"
         :key="category.key"
         class="tab"
-        :class="{ active: activeTab === category.key }"
+        :class="{ active: activeTab === category.key, 'done-tab': category.key === 'done' }"
         @click="switchTab(category.key)"
       >
         <text>{{ category.label }}</text>
@@ -20,6 +20,11 @@
 
     <view v-if="loading" class="state-card">
       <text>正在整理你的误解本...</text>
+    </view>
+
+    <view v-if="doneNoticeVisible" class="done-notice">
+      <text class="done-notice-en">done already!</text>
+      <text class="done-notice-zh">已移至done</text>
     </view>
 
     <template v-else>
@@ -38,9 +43,9 @@
           v-for="item in items"
           :key="item.id"
           class="swipe-row"
-          :class="{ opened: swipedId === item.id }"
-          @touchstart="onTouchStart(item.id, $event)"
-          @touchend="onTouchEnd(item.id, $event)"
+          :class="{ opened: canMarkDone && swipedId === item.id }"
+          @touchstart="canMarkDone && onTouchStart(item.id, $event)"
+          @touchend="canMarkDone && onTouchEnd(item.id, $event)"
         >
           <view class="swipe-main">
             <view
@@ -51,7 +56,7 @@
               <view class="flip-card-inner">
                 <view class="flip-face front">
                   <view class="face-top">
-                    <text class="face-tag">{{ activeCategory.cardTag }}</text>
+                    <text class="face-tag">{{ getCardTag(item) }}</text>
                     <text class="face-module">{{ item.sourceModule }}</text>
                   </view>
                   <text class="front-text" :class="{ compact: isLongCard }">{{ item.sourceText }}</text>
@@ -80,6 +85,14 @@
                         <text>阅读</text>
                       </view>
                     </template>
+                    <template v-else-if="activeTab === 'done'">
+                      <view class="ghost-btn subtle" @click.stop="toastDone(item)">
+                        <text>已完成</text>
+                      </view>
+                      <view class="ghost-btn" @click.stop="toastSource(item)">
+                        <text>看来源</text>
+                      </view>
+                    </template>
                     <template v-else>
                       <view class="ghost-btn subtle" @click.stop="toastSaved">
                         <text>加入今日复习</text>
@@ -93,7 +106,7 @@
               </view>
             </view>
           </view>
-          <view class="swipe-action" @click="markDone(item)">
+          <view v-if="canMarkDone" class="swipe-action" @click="markDone(item)">
             <text>done</text>
           </view>
         </view>
@@ -109,13 +122,15 @@ import { ensureAuthed } from "@/utils/auth";
 import { getUserId } from "@/utils/session";
 import { del, get, post } from "@/utils/request";
 
-type CategoryType = "word" | "sentence" | "writing" | "phrase" | "confusion";
+type CategoryType = "word" | "sentence" | "writing" | "phrase" | "confusion" | "done";
 
 interface MistakeItem {
   id: number | string;
   type?: string;
   category?: string;
+  categoryLabel?: string;
   subcategory?: string;
+  sourceType?: string;
   sourceText: string;
   translation: string;
   sourceModule: string;
@@ -124,6 +139,7 @@ interface MistakeItem {
   articleId?: string;
   status?: string;
   createdAt?: string;
+  doneAt?: string;
 }
 
 interface CategoryMeta {
@@ -170,6 +186,13 @@ const categories: CategoryMeta[] = [
     description: "专门留给总是容易混掉的一组词或表达。",
     emptyHint: "这里后续会叠加系统自动识别出的易混项。",
   },
+  {
+    key: "done",
+    label: "DONE",
+    cardTag: "DONE",
+    description: "这里只收录误解本里已经学会的单词，像一个轻量的已掌握词库。",
+    emptyHint: "左滑单词卡片并点击 done 后，会在这里看到已掌握记录。",
+  },
 ];
 
 const loading = ref(true);
@@ -180,15 +203,27 @@ const userId = ref<number | null>(null);
 const reExplainingId = ref<number | string | null>(null);
 const swipedId = ref<number | string | null>(null);
 const touchStartX = ref(0);
+const doneNoticeVisible = ref(false);
+let doneNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 
 const activeCategory = computed(() => categories.find((item) => item.key === activeTab.value) || categories[0]);
 const supportsReExplain = computed(() => activeTab.value === "word" || activeTab.value === "sentence");
+const canMarkDone = computed(() => activeTab.value !== "done");
 const isLongCard = computed(() => activeTab.value !== "word");
 
 async function loadItems() {
   loading.value = true;
   try {
-    if (supportsReExplain.value) {
+    if (activeTab.value === "done") {
+      if (!userId.value) {
+        items.value = [];
+        return;
+      }
+      const res = await get<MistakeItem[]>("/mistakes/done", {
+        userId: userId.value,
+      });
+      items.value = res.data || [];
+    } else if (supportsReExplain.value) {
       if (!userId.value) {
         items.value = [];
         return;
@@ -244,6 +279,14 @@ function toastSource(item: MistakeItem) {
   uni.showToast({ title: `来源：${item.sourceModule}`, icon: "none" });
 }
 
+function toastDone(item: MistakeItem) {
+  uni.showToast({ title: `${item.categoryLabel || "内容"}已完成`, icon: "none" });
+}
+
+function getCardTag(item: MistakeItem) {
+  return activeTab.value === "done" ? item.categoryLabel || activeCategory.value.cardTag : activeCategory.value.cardTag;
+}
+
 async function reExplain(item: MistakeItem) {
   if (!userId.value || reExplainingId.value === item.id || !supportsReExplain.value) return;
   reExplainingId.value = item.id;
@@ -279,18 +322,29 @@ function onTouchEnd(id: number | string, event: any) {
 }
 
 async function markDone(item: MistakeItem) {
+  if (!canMarkDone.value) return;
   if (supportsReExplain.value) {
     if (!userId.value) return;
     await del(`/mistakes/${item.id}`, { userId: userId.value });
-    uni.showToast({ title: "已移出误解本", icon: "none" });
   } else {
     if (!userId.value) return;
     await del(`/mistake-assets/${item.id}`, { userId: userId.value });
-    uni.showToast({ title: "已从当前列表隐藏", icon: "none" });
   }
   items.value = items.value.filter((current) => current.id !== item.id);
   delete flippedMap.value[item.id];
   swipedId.value = null;
+  showDoneNotice();
+}
+
+function showDoneNotice() {
+  doneNoticeVisible.value = true;
+  if (doneNoticeTimer) {
+    clearTimeout(doneNoticeTimer);
+  }
+  doneNoticeTimer = setTimeout(() => {
+    doneNoticeVisible.value = false;
+    doneNoticeTimer = null;
+  }, 1800);
 }
 
 onLoad(async () => {
@@ -318,6 +372,13 @@ onShow(async () => {
   background:
     radial-gradient(circle at top left, rgba(190, 24, 93, 0.12), transparent 30%),
     linear-gradient(180deg, #faf4f6 0%, #f8f4ef 100%);
+}
+
+.mistake-page.done-mode {
+  background:
+    radial-gradient(circle at top right, rgba(22, 163, 74, 0.16), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(20, 184, 166, 0.13), transparent 30%),
+    linear-gradient(180deg, #effaf3 0%, #f7fbef 100%);
 }
 
 .hero,
@@ -380,6 +441,104 @@ onShow(async () => {
 .tab.active {
   background: linear-gradient(135deg, #9f1239 0%, #d9466e 100%);
   color: #fff8fb;
+}
+
+.tab.done-tab {
+  border: 2rpx solid rgba(34, 197, 94, 0.55);
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.22), transparent 42%),
+    linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  box-shadow: inset 0 0 0 2rpx rgba(255, 255, 255, 0.7), 0 10rpx 20rpx rgba(22, 101, 52, 0.08);
+}
+
+.tab.done-tab.active {
+  border-color: rgba(22, 163, 74, 0.85);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  color: #f4fff8;
+  box-shadow: 0 12rpx 24rpx rgba(22, 101, 52, 0.22);
+}
+
+.done-notice {
+  margin-top: 18rpx;
+  padding: 22rpx 28rpx;
+  border-radius: 28rpx;
+  border: 2rpx solid rgba(34, 197, 94, 0.38);
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.2), transparent 36%),
+    linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  box-shadow: 0 18rpx 34rpx rgba(22, 101, 52, 0.12);
+}
+
+.done-notice-en,
+.done-notice-zh {
+  display: block;
+  text-align: center;
+}
+
+.done-notice-en {
+  color: #15803d;
+  font-size: 30rpx;
+  line-height: 1.25;
+  font-weight: 900;
+  letter-spacing: 1rpx;
+}
+
+.done-notice-zh {
+  margin-top: 6rpx;
+  color: #166534;
+  font-size: 24rpx;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.done-mode .hero,
+.done-mode .tabs,
+.done-mode .state-card,
+.done-mode .empty-card,
+.done-mode .category-tip {
+  border-color: rgba(187, 247, 208, 0.88);
+  box-shadow: 0 18rpx 38rpx rgba(22, 101, 52, 0.08);
+}
+
+.done-mode .eyebrow {
+  color: #15803d;
+}
+
+.done-mode .title,
+.done-mode .category-title,
+.done-mode .empty-title {
+  color: #173d28;
+}
+
+.done-mode .sub,
+.done-mode .category-sub,
+.done-mode .empty-sub {
+  color: #557062;
+}
+
+.done-mode .tab {
+  background: #dff6e7;
+  color: #247548;
+}
+
+.done-mode .tab.active {
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  color: #f4fff8;
+}
+
+.done-mode .tab.done-tab {
+  border: 2rpx solid rgba(34, 197, 94, 0.55);
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.22), transparent 42%),
+    linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+}
+
+.done-mode .tab.done-tab.active {
+  border-color: rgba(22, 163, 74, 0.85);
+  background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+  color: #f4fff8;
 }
 
 .state-card,
@@ -492,11 +651,23 @@ onShow(async () => {
     linear-gradient(180deg, #fffdfb 0%, #fff6f2 100%);
 }
 
+.done-mode .front {
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.15), transparent 32%),
+    linear-gradient(180deg, #fbfff8 0%, #ecfdf3 100%);
+}
+
 .back {
   background:
     radial-gradient(circle at bottom left, rgba(180, 83, 9, 0.12), transparent 30%),
     linear-gradient(180deg, #fff7ed 0%, #fffdf8 100%);
   transform: rotateY(180deg);
+}
+
+.done-mode .back {
+  background:
+    radial-gradient(circle at bottom left, rgba(20, 184, 166, 0.14), transparent 32%),
+    linear-gradient(180deg, #effdf7 0%, #fbfff7 100%);
 }
 
 .face-top {
@@ -514,9 +685,19 @@ onShow(async () => {
   font-weight: 800;
 }
 
+.done-mode .face-tag {
+  background: #bbf7d0;
+  color: #166534;
+}
+
 .face-tag.alt {
   background: #f4dcc5;
   color: #9a5a12;
+}
+
+.done-mode .face-tag.alt {
+  background: #ccfbf1;
+  color: #0f766e;
 }
 
 .face-module {
@@ -591,6 +772,16 @@ onShow(async () => {
 .ghost-btn.subtle {
   background: #f4dfe6;
   color: #9f1239;
+}
+
+.done-mode .ghost-btn.subtle {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.done-mode .ghost-btn {
+  background: #d1fae5;
+  color: #0f766e;
 }
 
 .ghost-btn.disabled {

@@ -38,6 +38,7 @@ public class WordService {
      */
     public List<Word> getNewWords(Long userId, int unit) {
         List<Word> unitWords = wordMapper.selectByUnit(unit);
+        log.info("[单词训练] getNewWords start userId={}, unit={}, unitWords={}", userId, unit, unitWords.size());
         List<Word> newWords = new ArrayList<>();
         Set<Long> selectedIds = new LinkedHashSet<>();
         for (Word w : unitWords) {
@@ -52,6 +53,8 @@ public class WordService {
         List<Word> mixedWords = new ArrayList<>(newWords);
         List<Word> mistakeWords = resolveMistakeWords(userId, selectedIds);
         mixedWords.addAll(mistakeWords);
+        log.info("[单词训练] selected baseWords={}, mixedMistakeWords={}, userId={}, unit={}",
+                newWords.size(), mistakeWords.size(), userId, unit);
 
         List<Word> fillerPool = unitWords.stream()
                 .filter(word -> !selectedIds.contains(word.getId()))
@@ -65,26 +68,30 @@ public class WordService {
         }
 
         Collections.shuffle(mixedWords);
-        return mixedWords.size() > BATCH_SIZE ? mixedWords.subList(0, BATCH_SIZE) : mixedWords;
+        List<Word> result = mixedWords.size() > BATCH_SIZE ? mixedWords.subList(0, BATCH_SIZE) : mixedWords;
+        log.info("[单词训练] getNewWords done userId={}, unit={}, returned={}", userId, unit, result.size());
+        return result;
     }
 
     /**
      * 获取待复习词（今天到期 + 未 mastered）
      */
     public List<WordProgress> getDueReviews(Long userId) {
-        return wpMapper.selectDueReviews(userId, BATCH_SIZE);
+        List<WordProgress> result = wpMapper.selectDueReviews(userId, BATCH_SIZE);
+        log.info("[单词训练] due reviews userId={}, returned={}", userId, result.size());
+        return result;
     }
 
     /**
      * 判断单词答案并更新进度
      */
     public Map<String, Object> checkAnswer(Long userId, Long wordId, String userAnswer) {
-        log.info("[Word] checkAnswer: userId={}, wordId={}, answer=[{}]", userId, wordId, userAnswer);
+        log.info("[单词训练] checkAnswer: userId={}, wordId={}, answer=[{}]", userId, wordId, userAnswer);
         Word word = wordMapper.selectById(wordId);
         if (word == null) throw new RuntimeException("word not found");
 
         boolean correct = judgeService.judge(word.getMeaning(), userAnswer);
-        log.info("[Word] judge: word={}, meaning={}, answer={}, correct={}", word.getWord(), word.getMeaning(), userAnswer, correct);
+        log.info("[单词训练] judge: word={}, meaning={}, answer={}, correct={}", word.getWord(), word.getMeaning(), userAnswer, correct);
 
         WordProgress wp = wpMapper.selectByUserAndWord(userId, wordId);
         if (wp == null) {
@@ -121,8 +128,12 @@ public class WordService {
 
         if (wp.getId() == null) {
             wpMapper.insert(wp);
+            log.info("[单词训练] progress inserted userId={}, wordId={}, correct={}, status={}, streak={}, nextReview={}",
+                    userId, wordId, correct, wp.getStatus(), wp.getCorrectStreak(), wp.getNextReviewDate());
         } else {
             wpMapper.updateById(wp);
+            log.info("[单词训练] progress updated progressId={}, userId={}, wordId={}, correct={}, status={}, streak={}, nextReview={}",
+                    wp.getId(), userId, wordId, correct, wp.getStatus(), wp.getCorrectStreak(), wp.getNextReviewDate());
         }
 
         Map<String, Object> result = new HashMap<>();
@@ -151,6 +162,8 @@ public class WordService {
         stats.put("mastered", mastered);
         stats.put("total", total);
         stats.put("vocabulary", Math.min(total * 3, 6547)); // rough estimate
+        log.info("[单词训练] stats userId={}, mastered={}, total={}, vocabulary={}",
+                userId, mastered, total, stats.get("vocabulary"));
         return stats;
     }
 
@@ -184,6 +197,8 @@ public class WordService {
             results.add(word);
             selectedIds.add(word.getId());
         }
+        log.info("[单词训练] resolved mistake words userId={}, candidates={}, resolved={}",
+                userId, mistakeWords.size(), results.size());
         return results;
     }
 }

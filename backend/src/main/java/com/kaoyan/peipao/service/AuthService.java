@@ -31,6 +31,7 @@ public class AuthService {
     private long expireDays;
 
     public LoginResponse wxLogin(String code) {
+        log.info("[登录] wxLogin start codePresent={}", code != null && !code.isBlank());
         try {
             WxMaJscode2SessionResult session = wxMaService.getUserService().getSessionInfo(code);
             String openid = session.getOpenid();
@@ -47,15 +48,21 @@ public class AuthService {
                 user.setPhaseStartDay(1);
                 user.setTotalCheckins(0);
                 userMapper.insert(user);
-                log.info("Created wx user: id={}, openid={}", user.getId(), openid);
+                log.info("[登录] 创建微信用户 id={}, openid={}", user.getId(), openid);
+            } else {
+                log.info("[登录] existing wx user found: id={}, onboardingDone={}",
+                        user.getId(),
+                        user.getPlanJson() != null && !user.getPlanJson().isBlank());
             }
 
+            log.info("[登录] wxLogin success userId={} expireDays={}", user.getId(), expireDays);
             return LoginResponse.builder()
                     .token(buildToken(user))
                     .userId(user.getId())
                     .onboardingDone(user.getPlanJson() != null && !user.getPlanJson().isBlank())
                     .build();
         } catch (Exception e) {
+            log.warn("[登录] wxLogin failed: {}", e.getMessage());
             throw new RuntimeException("微信登录失败: " + e.getMessage(), e);
         }
     }

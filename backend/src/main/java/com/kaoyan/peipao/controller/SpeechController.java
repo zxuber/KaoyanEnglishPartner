@@ -25,11 +25,11 @@ public class SpeechController {
 
     @PostMapping("/recognize")
     public Result<Map<String, Object>> recognize(@RequestParam("audio") MultipartFile audio) {
-        log.info("[Speech] receive upload: fileName={}, size={}bytes", audio.getOriginalFilename(), audio.getSize());
+        log.info("[语音识别] receive upload: fileName={}, size={}bytes", audio.getOriginalFilename(), audio.getSize());
         Map<String, Object> result = new HashMap<>();
 
         if (audio.isEmpty()) {
-            log.warn("[Speech] empty file uploaded");
+            log.warn("[语音识别] empty file uploaded");
             result.put("text", "");
             result.put("success", false);
             result.put("error", "Empty audio file");
@@ -49,13 +49,13 @@ public class SpeechController {
 
             // Transcribe
             String text = speechService.transcribe(tempFile.toFile());
-            log.info("[Speech] recognition done: [{}]", text);
+            log.info("[语音识别] recognition done: [{}]", text);
 
             result.put("text", text);
             result.put("success", text != null && !text.isEmpty());
             return Result.ok(result);
         } catch (IOException e) {
-            log.error("[Speech] IO error", e);
+            log.error("[语音识别] IO error", e);
             result.put("text", "");
             result.put("success", false);
             result.put("error", e.getMessage());

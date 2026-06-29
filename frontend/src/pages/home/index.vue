@@ -16,18 +16,33 @@
     </view>
 
     <template v-else>
-      <view class="continue-card" @click="goPage(dashboard.continueTraining?.page || '/pages/word/index')">
-        <view class="continue-top">
-          <text class="continue-tag">继续上次训练</text>
-          <text class="continue-module">{{ dashboard.continueTraining?.module || '今日主线' }}</text>
+      <view class="word-hero-card" @click="goPage('/pages/word/index')">
+        <view class="word-hero-top">
+          <text class="word-hero-tag">今日单词训练</text>
+          <text class="word-hero-meta">20 题</text>
         </view>
-        <text class="continue-title">{{ dashboard.continueTraining?.title || '回到你上次中断的训练' }}</text>
-        <text v-if="dashboard.continueTraining?.subtitle" class="continue-sub">{{ dashboard.continueTraining?.subtitle }}</text>
-        <view class="continue-progress">
-          <view class="continue-bar">
-            <view class="continue-fill" :style="{ width: continuePercent + '%' }"></view>
+        <text class="word-hero-title">开口背单词</text>
+        <text class="word-hero-sub">看英文，说中文释义。答错自动回炉，误解本单词会穿插回来继续巩固。</text>
+        <view class="word-hero-action">
+          <text>开始今日训练</text>
+          <text class="word-hero-arrow">→</text>
+        </view>
+      </view>
+
+      <view class="recent-card" @click="goPage(dashboard.continueTraining?.page || '/pages/word/index')">
+        <view class="recent-main">
+          <view>
+            <text class="recent-tag">继续上次训练</text>
+            <text class="recent-title">{{ dashboard.continueTraining?.title || '暂无上次训练，先从单词开始' }}</text>
+            <text v-if="dashboard.continueTraining?.subtitle" class="recent-sub">{{ dashboard.continueTraining?.subtitle }}</text>
           </view>
-          <text class="continue-metric">{{ dashboard.continueTraining?.progressCurrent || 0 }} / {{ dashboard.continueTraining?.progressTotal || 0 }}</text>
+          <text class="recent-module">{{ dashboard.continueTraining?.module || '推荐起点' }}</text>
+        </view>
+        <view class="recent-progress">
+          <view class="recent-bar">
+            <view class="recent-fill" :style="{ width: continuePercent + '%' }"></view>
+          </view>
+          <text class="recent-metric">{{ dashboard.continueTraining?.progressCurrent || 0 }} / {{ dashboard.continueTraining?.progressTotal || 0 }}</text>
         </view>
       </view>
 
@@ -48,33 +63,17 @@
 
       <view class="section">
         <view class="section-head">
-          <text class="sec-title">今日推荐</text>
-          <text class="sec-sub">先做系统建议的 2 到 3 件事，不要让首页变成功能超市</text>
-        </view>
-        <view
-          v-for="task in dashboard.todayTasks"
-          :key="task.title"
-          class="task-card"
-          @click="goPage(task.page)"
-        >
-          <view class="task-line">
-            <text class="task-badge" :style="{ background: task.accent || '#0f766e' }">{{ task.badge }}</text>
-            <text class="task-title">{{ task.title }}</text>
-          </view>
-          <text class="task-sub">{{ task.subtitle }}</text>
-          <text class="task-reason">{{ task.reason }}</text>
-        </view>
-      </view>
-
-      <view class="section">
-        <view class="section-head">
           <text class="sec-title">专项训练</text>
-          <text class="sec-sub">阅读、翻译、完形、新题型直接进入，写作再拆成大作文和小作文</text>
+          <text class="sec-sub">专项入口会吸收今日推荐理由，优先项会直接标出来</text>
         </view>
         <view class="special-grid">
-          <view v-for="entry in specialEntries" :key="entry.title" class="special-card" :class="[entry.skin, { wide: entry.wide }]" @click="goPage(entry.page)">
-            <text class="special-title">{{ entry.title }}</text>
+          <view v-for="entry in enhancedSpecialEntries" :key="entry.title" class="special-card" :class="[entry.skin, { wide: entry.wide, priority: entry.priority }]" @click="goPage(entry.page)">
+            <view class="special-top">
+              <text class="special-title">{{ entry.title }}</text>
+              <text v-if="entry.priority" class="special-badge">今日优先</text>
+            </view>
             <text class="special-sub">{{ entry.subtitle }}</text>
+            <text v-if="entry.reason" class="special-reason">{{ entry.reason }}</text>
           </view>
         </view>
       </view>
@@ -165,6 +164,19 @@ const continuePercent = computed(() => {
   const current = dashboard.value.continueTraining?.progressCurrent || 0;
   const total = dashboard.value.continueTraining?.progressTotal || 0;
   return total ? Math.min(100, Math.round((current / total) * 100)) : 0;
+});
+
+const enhancedSpecialEntries = computed(() => {
+  const tasks = dashboard.value.todayTasks || [];
+  return specialEntries.map((entry) => {
+    const task = tasks.find((item) => item.page === entry.page);
+    return {
+      ...entry,
+      subtitle: task?.subtitle || entry.subtitle,
+      reason: task?.reason || "",
+      priority: !!task,
+    };
+  });
 });
 
 async function fetchDashboard(userId: number) {
@@ -273,18 +285,28 @@ async function doCheckin() {
 .h1 { display: block; font-size: 56rpx; line-height: 1.06; font-weight: 800; color: #18302b; }
 .sub { display: block; margin-top: 14rpx; font-size: 26rpx; line-height: 1.6; color: #5d5a54; }
 .hero-pill { padding: 18rpx 24rpx; border-radius: 999rpx; background: rgba(255,255,255,0.7); backdrop-filter: blur(16rpx); box-shadow: 0 12rpx 30rpx rgba(24,48,43,0.08); color: #18302b; font-size: 24rpx; font-weight: 600; }
-.loading-card,.continue-card,.task-card,.review-card,.special-card,.stat-card,.tool-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(18rpx); box-shadow: 0 20rpx 40rpx rgba(31, 41, 35, 0.07); border: 1rpx solid rgba(255,255,255,0.55); }
+.loading-card,.word-hero-card,.recent-card,.review-card,.special-card,.stat-card,.tool-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(18rpx); box-shadow: 0 20rpx 40rpx rgba(31, 41, 35, 0.07); border: 1rpx solid rgba(255,255,255,0.55); }
 .loading-card { padding: 40rpx; border-radius: 28rpx; color: #5d5a54; text-align: center; }
-.continue-card { padding: 30rpx; border-radius: 32rpx; margin-bottom: 24rpx; background: linear-gradient(135deg, #5b392c 0%, #8a5a43 100%); color: #f7f5ef; }
-.continue-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18rpx; }
-.continue-tag { font-size: 22rpx; padding: 10rpx 16rpx; border-radius: 999rpx; background: rgba(255,255,255,0.16); }
-.continue-module { font-size: 22rpx; opacity: 0.8; }
-.continue-title { display: block; font-size: 38rpx; font-weight: 700; line-height: 1.2; }
-.continue-sub { display: block; margin-top: 12rpx; font-size: 24rpx; line-height: 1.5; color: rgba(247,245,239,0.8); }
-.continue-progress { display: flex; align-items: center; gap: 16rpx; margin-top: 24rpx; }
-.continue-bar { flex: 1; height: 10rpx; background: rgba(255,255,255,0.18); border-radius: 999rpx; overflow: hidden; }
-.continue-fill { height: 100%; background: #f6c567; border-radius: 999rpx; }
-.continue-metric { font-size: 22rpx; color: rgba(247,245,239,0.85); }
+.word-hero-card { padding: 34rpx; border-radius: 34rpx; margin-bottom: 18rpx; background:
+  radial-gradient(circle at top right, rgba(236, 201, 75, 0.28), transparent 34%),
+  linear-gradient(135deg, #0f766e 0%, #134e4a 100%); color: #f5fffb; }
+.word-hero-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22rpx; }
+.word-hero-tag { font-size: 24rpx; padding: 10rpx 18rpx; border-radius: 999rpx; background: rgba(255,255,255,0.16); font-weight: 700; }
+.word-hero-meta { font-size: 22rpx; color: rgba(245,255,251,0.78); }
+.word-hero-title { display: block; font-size: 52rpx; line-height: 1.08; font-weight: 900; letter-spacing: 1rpx; }
+.word-hero-sub { display: block; margin-top: 16rpx; font-size: 25rpx; line-height: 1.65; color: rgba(245,255,251,0.82); }
+.word-hero-action { display: inline-flex; align-items: center; gap: 12rpx; margin-top: 28rpx; padding: 16rpx 22rpx; border-radius: 999rpx; background: #f6c567; color: #18302b; font-size: 25rpx; font-weight: 800; }
+.word-hero-arrow { font-size: 28rpx; }
+.recent-card { padding: 24rpx; border-radius: 28rpx; margin-bottom: 24rpx; background: rgba(255,255,255,0.78); }
+.recent-main { display: flex; justify-content: space-between; gap: 18rpx; align-items: flex-start; }
+.recent-tag { display: block; margin-bottom: 10rpx; font-size: 21rpx; color: #8a5a43; font-weight: 800; }
+.recent-module { flex-shrink: 0; padding: 8rpx 14rpx; border-radius: 999rpx; background: #f4e8dc; color: #8a5a43; font-size: 20rpx; font-weight: 700; }
+.recent-title { display: block; font-size: 30rpx; font-weight: 800; line-height: 1.25; color: #2f2924; }
+.recent-sub { display: block; margin-top: 10rpx; font-size: 23rpx; line-height: 1.5; color: #77695d; }
+.recent-progress { display: flex; align-items: center; gap: 14rpx; margin-top: 20rpx; }
+.recent-bar { flex: 1; height: 9rpx; background: #efe6dc; border-radius: 999rpx; overflow: hidden; }
+.recent-fill { height: 100%; background: #8a5a43; border-radius: 999rpx; }
+.recent-metric { font-size: 21rpx; color: #7d6e62; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; margin-bottom: 28rpx; }
 .stat-card { padding: 24rpx 18rpx; border-radius: 24rpx; text-align: center; }
 .stat-num { display: block; font-size: 42rpx; font-weight: 800; color: #18302b; }
@@ -293,22 +315,20 @@ async function doCheckin() {
 .section-head { display: flex; flex-direction: column; gap: 8rpx; margin-bottom: 16rpx; }
 .sec-title { font-size: 30rpx; font-weight: 700; color: #1f2c28; }
 .sec-sub { font-size: 22rpx; color: #847a6d; }
-.task-card { padding: 28rpx; border-radius: 28rpx; margin-bottom: 14rpx; }
-.task-line { display: flex; align-items: center; gap: 14rpx; margin-bottom: 14rpx; }
-.task-badge { color: #fff; border-radius: 999rpx; padding: 8rpx 14rpx; font-size: 20rpx; }
-.task-title { flex: 1; font-size: 30rpx; font-weight: 700; color: #1f2c28; }
-.task-sub { display: block; font-size: 24rpx; color: #574f45; line-height: 1.55; }
-.task-reason { display: block; margin-top: 12rpx; font-size: 22rpx; color: #8c816f; line-height: 1.5; }
 .special-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14rpx; }
-.special-card { min-height: 154rpx; padding: 24rpx; border-radius: 24rpx; display: flex; flex-direction: column; justify-content: space-between; }
+.special-card { min-height: 176rpx; padding: 24rpx; border-radius: 24rpx; display: flex; flex-direction: column; justify-content: space-between; }
+.special-card.priority { border-color: rgba(15, 118, 110, 0.22); box-shadow: 0 22rpx 42rpx rgba(15, 118, 110, 0.1); }
 .special-card.reading { background: linear-gradient(180deg, #fff7ed 0%, #fffdf9 100%); }
 .special-card.writing { background: linear-gradient(180deg, #fff4f7 0%, #fffdfb 100%); }
 .special-card.translate { background: linear-gradient(180deg, #f4fbff 0%, #fffefe 100%); }
 .special-card.cloze { background: linear-gradient(180deg, #f6f5ff 0%, #fffefe 100%); }
 .special-card.new-question { background: linear-gradient(180deg, #eefbf5 0%, #fffefe 100%); }
-.special-card.wide { grid-column: 1 / -1; min-height: 138rpx; }
+.special-card.wide { grid-column: 1 / -1; min-height: 154rpx; }
+.special-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12rpx; }
 .special-title { font-size: 30rpx; font-weight: 700; color: #1f2c28; }
-.special-sub { font-size: 22rpx; color: #7a7166; line-height: 1.45; }
+.special-badge { flex-shrink: 0; padding: 7rpx 12rpx; border-radius: 999rpx; background: #0f766e; color: #f8fffc; font-size: 19rpx; font-weight: 800; }
+.special-sub { margin-top: 12rpx; font-size: 22rpx; color: #574f45; line-height: 1.45; }
+.special-reason { display: block; margin-top: 12rpx; font-size: 20rpx; color: #8c816f; line-height: 1.45; }
 .tool-list { display:flex; flex-direction:column; gap:14rpx; }
 .tool-card { padding:24rpx; border-radius:24rpx; }
 .tool-card.accent { background: linear-gradient(135deg, #fff1f6 0%, #fffaf9 100%); }

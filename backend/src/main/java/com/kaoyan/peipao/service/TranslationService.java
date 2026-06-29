@@ -3,12 +3,14 @@ package com.kaoyan.peipao.service;
 import com.kaoyan.peipao.entity.Word;
 import com.kaoyan.peipao.mapper.WordMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TranslationService {
@@ -77,48 +79,58 @@ public class TranslationService {
 
     public boolean shouldUseLlm(String sourceText, String contentType) {
         if ("sentence".equalsIgnoreCase(contentType)) {
+            log.info("[翻译路由] sentence translation requires LLM textChars={}", sourceText == null ? 0 : sourceText.length());
             return true;
         }
 
         String normalized = normalizeWord(sourceText);
         if (normalized.isBlank()) {
+            log.info("[翻译路由] blank word after normalize, fallback to LLM rawText={}", sourceText);
             return true;
         }
 
         for (String candidate : buildLookupCandidates(normalized)) {
             if (HIGH_FREQUENCY_WORDS.containsKey(candidate)) {
+                log.info("[翻译路由] high-frequency dictionary hit candidate={}", candidate);
                 return false;
             }
             Word word = wordMapper.selectByWord(candidate);
             if (word != null && word.getMeaning() != null && !word.getMeaning().isBlank()) {
+                log.info("[翻译路由] word table hit candidate={}, wordId={}", candidate, word.getId());
                 return false;
             }
         }
+        log.info("[翻译路由] no local hit, fallback to LLM normalized={}", normalized);
         return true;
     }
 
     public String translateSelection(String sourceText, String contentType) {
         if ("sentence".equalsIgnoreCase(contentType)) {
+            log.info("[翻译] sentence via LLM textChars={}", sourceText == null ? 0 : sourceText.length());
             return llmService.translateSelection(sourceText, contentType);
         }
 
         String normalized = normalizeWord(sourceText);
         if (normalized.isBlank()) {
+            log.info("[翻译] blank normalized word, using LLM rawText={}", sourceText);
             return llmService.translateSelection(sourceText, contentType);
         }
 
         for (String candidate : buildLookupCandidates(normalized)) {
             String localTranslation = HIGH_FREQUENCY_WORDS.get(candidate);
             if (localTranslation != null) {
+                log.info("[翻译] high-frequency dictionary result candidate={}", candidate);
                 return localTranslation;
             }
 
             Word word = wordMapper.selectByWord(candidate);
             if (word != null && word.getMeaning() != null && !word.getMeaning().isBlank()) {
+                log.info("[翻译] word table result candidate={}, wordId={}", candidate, word.getId());
                 return simplifyMeaning(word.getMeaning());
             }
         }
 
+        log.info("[翻译] LLM fallback normalized={}", normalized);
         return llmService.translateSelection(sourceText, contentType);
     }
 

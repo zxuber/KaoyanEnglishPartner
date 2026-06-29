@@ -8,11 +8,13 @@ import com.kaoyan.peipao.entity.MistakeAsset;
 import com.kaoyan.peipao.mapper.MistakeAssetMapper;
 import com.kaoyan.peipao.mapper.MistakeAssetProgressMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MistakeAssetService {
@@ -23,18 +25,25 @@ public class MistakeAssetService {
     private final MistakeAssetProgressMapper mistakeAssetProgressMapper;
 
     public List<MistakeAssetResponse> listByCategory(Long userId, String category) {
-        return mistakeAssetMapper.selectVisibleByUserAndCategory(userId, normalizeCategory(category));
+        String normalizedCategory = normalizeCategory(category);
+        List<MistakeAssetResponse> result = mistakeAssetMapper.selectVisibleByUserAndCategory(userId, normalizedCategory);
+        log.info("[误解本资产] list visible userId={}, category={}, count={}", userId, normalizedCategory, result.size());
+        return result;
     }
 
     public void markDone(Long userId, Long assetId) {
+        log.info("[误解本资产] markDone start userId={}, assetId={}", userId, assetId);
         MistakeAsset asset = mistakeAssetMapper.selectOne(new LambdaQueryWrapper<MistakeAsset>()
                 .eq(MistakeAsset::getId, assetId)
                 .eq(MistakeAsset::getActive, 1)
                 .last("LIMIT 1"));
         if (asset == null) {
+            log.warn("[误解本资产] markDone asset not found userId={}, assetId={}", userId, assetId);
             throw new BizException(ErrorCode.MISTAKE_ASSET_NOT_FOUND);
         }
         mistakeAssetProgressMapper.upsertStatus(userId, assetId, "done");
+        log.info("[误解本资产] markDone success userId={}, assetId={}, category={}, sourceText={}",
+                userId, assetId, asset.getCategory(), asset.getSourceText());
     }
 
     private String normalizeCategory(String category) {

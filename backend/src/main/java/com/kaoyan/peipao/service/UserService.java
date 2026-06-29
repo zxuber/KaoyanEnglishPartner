@@ -35,6 +35,8 @@ public class UserService {
 
     public Map<String, Object> submitOnboarding(OnboardingRequest request) {
         Long guardUserId = request.getUserId() == null ? 0L : request.getUserId();
+        log.info("[用户] submitOnboarding start userId={}, examType={}, targetScore={}, remainingDays={}, weakModules={}",
+                request.getUserId(), request.getExamType(), request.getTargetScore(), request.getRemainingDays(), request.getWeakModules());
         tokenActionGuardService.guard(guardUserId, "onboarding-generate-plan", Duration.ofSeconds(15));
         Map<String, Object> profile = new HashMap<>();
         profile.put("examType", request.getExamType());
@@ -50,12 +52,12 @@ public class UserService {
         profile.put("biggestObstacle", request.getBiggestObstacle());
         profile.put("materials", request.getMaterials() != null ? request.getMaterials() : "无");
 
-        log.info("Generating plan: target={}, days={}", request.getTargetScore(), request.getRemainingDays());
+        log.info("[学习方案] 开始生成计划 target={}, days={}", request.getTargetScore(), request.getRemainingDays());
         PlanResponse plan = llmService.generatePlan(profile);
 
         User user = resolveUserForOnboarding(request.getUserId());
         applyOnboarding(user, request, plan);
-        log.info("User profile saved: id={}, onboardingDone=true", user.getId());
+        log.info("[用户] 学习画像已保存 id={}, onboardingDone=true", user.getId());
 
         Map<String, Object> result = new HashMap<>();
         result.put("plan", plan);
@@ -64,10 +66,13 @@ public class UserService {
     }
 
     public DashboardResponse getDashboard(Long userId) {
+        log.info("[首页] loading dashboard userId={}", userId);
         User user = requireUser(userId);
         int masteredWords = wordProgressMapper.countMastered(userId);
         int totalWords = wordProgressMapper.countTotal(userId);
         int dueReviewCount = wordProgressMapper.selectDueReviews(userId, 100).size();
+        log.info("[首页] stats userId={}, masteredWords={}, totalWords={}, dueReviewCount={}, totalCheckins={}",
+                userId, masteredWords, totalWords, dueReviewCount, user.getTotalCheckins());
 
         DashboardResponse.ContinueTraining continueTraining = buildContinueTraining(user);
         List<DashboardResponse.TaskCard> todayTasks = buildTodayTasks(user, dueReviewCount);
@@ -117,16 +122,25 @@ public class UserService {
         User user = requireUser(userId);
         LocalDate today = LocalDate.now();
         if (today.equals(user.getLastCheckinDate())) {
+            log.info("[打卡] skipped duplicate checkin userId={}, date={}", userId, today);
             return;
         }
         user.setLastCheckinDate(today);
         user.setTotalCheckins((user.getTotalCheckins() == null ? 0 : user.getTotalCheckins()) + 1);
         userMapper.updateById(user);
+        log.info("[打卡] success userId={}, date={}, totalCheckins={}", userId, today, user.getTotalCheckins());
     }
 
     public void updateRecentTraining(Long userId, UpdateRecentTrainingRequest request) {
         User user = requireUser(userId);
         try {
+            log.info("[最近训练] update userId={}, module={}, title={}, page={}, progress={}/{}",
+                    userId,
+                    request.getModule(),
+                    request.getTitle(),
+                    request.getPage(),
+                    request.getProgressCurrent(),
+                    request.getProgressTotal());
             Map<String, Object> payload = new HashMap<>();
             payload.put("module", request.getModule());
             payload.put("title", request.getTitle());
@@ -144,19 +158,24 @@ public class UserService {
             user.setWeakModules(user.getWeakModules());
             user.setPlanJson(mergeRecentTraining(user.getPlanJson(), payload));
             userMapper.updateById(user);
+            log.info("[最近训练] saved userId={}, module={}, page={}", userId, request.getModule(), request.getPage());
         } catch (Exception e) {
+            log.error("[最近训练] save failed userId={}", userId, e);
             throw new RuntimeException("保存最近训练失败", e);
         }
     }
 
     public PlanResponse getPlan(Long userId) {
+        log.info("[学习方案] getPlan userId={}", userId);
         User user = userMapper.selectById(userId);
         if (user == null || user.getPlanJson() == null) {
+            log.warn("[学习方案] missing plan userId={}", userId);
             throw new RuntimeException("方案不存在");
         }
         try {
             return objectMapper.readValue(stripRecentTraining(user.getPlanJson()), PlanResponse.class);
         } catch (Exception e) {
+            log.error("[学习方案] parse failed userId={}", userId, e);
             throw new RuntimeException("方案数据解析失败", e);
         }
     }
@@ -165,8 +184,10 @@ public class UserService {
         if (userId != null) {
             User existing = userMapper.selectById(userId);
             if (existing != null) {
+                log.info("[用户] onboarding will update existing userId={}", userId);
                 return existing;
             }
+            log.warn("[用户] onboarding userId={} not found, will create fallback anonymous user", userId);
         }
         User user = new User();
         user.setSessionId(UUID.randomUUID().toString().replace("-", "").substring(0, 16));
@@ -174,6 +195,7 @@ public class UserService {
         user.setPhaseStartDay(1);
         user.setTotalCheckins(0);
         userMapper.insert(user);
+        log.info("[用户] created anonymous onboarding userId={}", user.getId());
         return user;
     }
 

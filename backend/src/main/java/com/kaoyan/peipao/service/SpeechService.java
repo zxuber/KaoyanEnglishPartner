@@ -33,17 +33,17 @@ public class SpeechService {
      * auto-converts to 16kHz mono WAV via ffmpeg if needed, then calls Python STT.
      */
     public String transcribe(File audioFile) {
-        log.info("[Speech] start: audio={}, size={}bytes", audioFile.getAbsolutePath(), audioFile.length());
+        log.info("[语音识别] start: audio={}, size={}bytes", audioFile.getAbsolutePath(), audioFile.length());
         File effectiveFile = audioFile;
 
         if (!isWav(audioFile)) {
-            log.info("[Speech] non-WAV detected, converting via ffmpeg...");
+            log.info("[语音识别] non-WAV detected, converting via ffmpeg...");
             File converted = convertToWav(audioFile);
             if (converted == null) {
-                log.warn("[Speech] ffmpeg conversion failed, trying raw file");
+                log.warn("[语音识别] ffmpeg conversion failed, trying raw file");
             } else {
                 effectiveFile = converted;
-                log.info("[Speech] converted to WAV: {}bytes", effectiveFile.length());
+                log.info("[语音识别] converted to WAV: {}bytes", effectiveFile.length());
             }
         }
 
@@ -58,22 +58,22 @@ public class SpeechService {
             );
             pb.environment().put("PYTHONIOENCODING", "utf-8");
             pb.redirectErrorStream(true);
-            log.info("[Speech] launching python: {} {} {}",
+            log.info("[语音识别] launching python: {} {} {}",
                     resolvedPythonCommand, scriptAbsolute, effectiveFile.getAbsolutePath());
 
             Process process = pb.start();
-            log.info("[Speech] python pid={}", process.pid());
+            log.info("[语音识别] python pid={}", process.pid());
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
 
             if (!finished) {
                 process.destroyForcibly();
-                log.warn("[Speech] python timed out after {}s", timeoutSeconds);
+                log.warn("[语音识别] python timed out after {}s", timeoutSeconds);
                 return "";
             }
 
             // Read all output (stdout+stderr merged)
             String allOutput = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
-            log.info("[Speech] raw output ({} chars): {}", allOutput.length(), allOutput);
+            log.info("[语音识别] raw output ({} chars): {}", allOutput.length(), allOutput);
             String text = "";
             // stt.py logs: [stt.py] Baidu ASR result: "TEXT"
             for (String line : allOutput.split("\n")) {
@@ -97,14 +97,14 @@ public class SpeechService {
                 }
             }
             if (process.exitValue() == 0) {
-                log.info("[Speech] result: [{}]", text);
+                log.info("[语音识别] result: [{}]", text);
                 return text;
             } else {
-                log.warn("[Speech] python exit {}", process.exitValue());
+                log.warn("[语音识别] python exit {}", process.exitValue());
                 return "";
             }
         } catch (Exception e) {
-            log.error("[Speech] failed", e);
+            log.error("[语音识别] failed", e);
             return "";
         } finally {
             if (effectiveFile != audioFile) {
@@ -133,18 +133,18 @@ public class SpeechService {
                     out.toAbsolutePath().toString()
             );
             pb.redirectErrorStream(true);
-            log.info("[Speech] ffmpeg: {}", String.join(" ", pb.command()));
+            log.info("[语音识别] ffmpeg: {}", String.join(" ", pb.command()));
             Process p = pb.start();
             if (!p.waitFor(15, TimeUnit.SECONDS)) { p.destroyForcibly(); return null; }
             if (p.exitValue() != 0) {
-                log.warn("[Speech] ffmpeg exit {}: {}",
+                log.warn("[语音识别] ffmpeg exit {}: {}",
                         p.exitValue(), new String(p.getInputStream().readAllBytes()).trim());
                 return null;
             }
-            log.info("[Speech] ffmpeg ok");
+            log.info("[语音识别] ffmpeg ok");
             return out.toFile();
         } catch (Exception e) {
-            log.error("[Speech] ffmpeg error", e);
+            log.error("[语音识别] ffmpeg error", e);
             return null;
         }
     }

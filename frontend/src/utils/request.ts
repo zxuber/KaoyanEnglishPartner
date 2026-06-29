@@ -23,20 +23,22 @@ interface ApiResponse<T = unknown> {
 
 function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> {
   const token = getToken();
-  const finalUrl = getApiBaseUrl() + options.url;
+  const method = options.method || "GET";
+  const queryInUrl = method === "GET" || method === "DELETE";
+  const finalUrl = getApiBaseUrl() + (queryInUrl ? appendQuery(options.url, options.data) : options.url);
 
   console.log("[API_REQUEST:start]", {
     url: finalUrl,
     path: options.url,
-    method: options.method || "GET",
+    method,
     hasToken: !!token,
   });
 
   return new Promise((resolve, reject) => {
     uni.request({
       url: finalUrl,
-      method: options.method || "GET",
-      data: options.data,
+      method,
+      data: queryInUrl ? undefined : options.data,
       timeout: TIMEOUT,
       header: {
         "Content-Type": "application/json",
@@ -78,6 +80,20 @@ function request<T = unknown>(options: RequestOptions): Promise<ApiResponse<T>> 
       },
     });
   });
+}
+
+function appendQuery(url: string, data?: Record<string, unknown>) {
+  if (!data || !Object.keys(data).length) {
+    return url;
+  }
+  const query = Object.entries(data)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+    .join("&");
+  if (!query) {
+    return url;
+  }
+  return `${url}${url.includes("?") ? "&" : "?"}${query}`;
 }
 
 export function get<T = unknown>(url: string, data?: Record<string, unknown>) {

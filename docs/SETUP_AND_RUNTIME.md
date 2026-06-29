@@ -1,6 +1,6 @@
 # SETUP_AND_RUNTIME.md - 跨平台环境与联调说明
 
-> 最后更新：2026-06-25
+> 最后更新：2026-06-29
 > 用途：统一说明 macOS / Windows 下的运行前置条件、配置入口、真机联调方式。
 
 ---
@@ -41,6 +41,28 @@
 | `DEEPSEEK_MODEL` | DeepSeek 模型名 | `deepseek-chat` |
 | `APP_JWT_SECRET` | JWT 签名密钥（Base64） | 本地开发默认值 |
 | `APP_JWT_EXPIRE_DAYS` | JWT 过期天数 | `30` |
+| `APP_LOG_DIR` | 后端业务日志目录 | `logs` |
+
+### 后端日志配置
+
+后端统一使用 `Log4j2` 管理日志，配置文件：
+
+- `backend/src/main/resources/log4j2-spring.xml`
+
+默认输出：
+
+- 控制台：开发时直接看终端 / IDE 控制台
+- 文件：`logs/info.log`
+- 滚动策略：按天切分，历史文件形如 `logs/info-2026-06-29.log.gz`
+- 保留策略：最多保留 30 个滚动文件
+
+如果希望把日志写到固定目录，可在启动后端前设置：
+
+```bash
+export APP_LOG_DIR="/var/log/kaoyan-peipao"
+```
+
+每条 HTTP 请求会生成或透传 `X-Request-Id`，日志格式中会带 requestId，方便把一次请求里的 controller / service / mapper 相关日志串起来排查。
 
 ### DeepSeek Key 策略
 
@@ -96,7 +118,9 @@ $env:DEEPSEEK_API_KEY="your-real-key"
 
 - `mistake_asset_library`：全局资产库
 - `mistake_asset_progress`：用户对资产的 `done` 状态
-- 默认原始数据：`写作表达 / 固定搭配 / 易混词` 各 100 条
+- 默认原始数据：`写作表达 / 固定搭配 / 易混词` 各 100 条，共 300 条
+- 数据约束：同一 `category` 下 `source_text` 唯一，不能靠不同 `subcategory` 复制同一条内容
+- 2026-06-29 本地已重新导入并核验：三类均满足 `COUNT(*)=100` 且 `COUNT(DISTINCT source_text)=100`
 
 新电脑重建数据库时，执行完整初始化脚本即可同步这些原始数据：
 
@@ -332,8 +356,11 @@ $env:APP_STT_PYTHON_COMMAND="py"
 
 这意味着：
 
-- 从单词页或阅读页返回首页后，`继续上次训练 / 已掌握单词 / 待回炉词 / 累计打卡` 会重新按后端真实数据刷新
+- 从单词页或阅读页返回首页后，`今日单词训练 / 继续上次训练 / 已掌握单词 / 待回炉词 / 累计打卡` 会重新按后端真实数据刷新
 - 首页现在是训练状态汇总页，而不只是首次加载一次的静态展示页
+- 首页最大主卡固定为 `今日单词训练`，不再被 recent training 替换
+- `继续上次训练` 放在主卡下方作为次级卡
+- 后端 `todayTasks` 仍然返回画像驱动的推荐任务，但前端不再单独展示 `今日推荐` 区块，而是把匹配专项的 subtitle / reason 合并进 `专项训练` 卡片，并显示 `今日优先` 标签
 
 ### 阅读 MVP 范围
 
@@ -399,6 +426,12 @@ $env:APP_STT_PYTHON_COMMAND="py"
   - 左滑后出现 `done`
   - 点击后会把该条目标记为已完成，并从当前误解本列表移除
   - `done` 只在左滑状态可见，翻卡时不会露出
+- 误解本新增 `DONE` 聚合模块：
+  - 只收录误解本中已经点击 `done` 的单词
+  - 不收录短句、写作表达、固定搭配、易混词
+  - 页面样式使用独立绿色系，和其他 5 个误解本模块区分开，语义更接近“已掌握词库”
+  - 后端接口：`GET /api/v1/mistakes/done?userId=`
+  - `DONE` 模块为回看已掌握单词，不显示左滑 done 按钮
 
 当前单词训练已开始接入误解本：
 
