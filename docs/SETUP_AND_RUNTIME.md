@@ -215,6 +215,33 @@ VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 - 微信开发者工具本地联调仍优先打开 `frontend/dist/dev/mp-weixin`
 - 当前 3 tab 信息架构为 `首页 / 误解本 / 英教系统`
 - `英教系统` tab 页内展示全称：`高级智能英语教练系统`
+- 首页只保留训练中枢入口：`今日单词训练 / 继续上次训练 / 专项训练 / 模考`
+- `误解本` 和 `英教系统` 不再在首页重复放入口，因为已经是底部 tab
+
+### 专项训练 MVP 接口
+
+2026-06-29 起，3 tab 分支新增 `practice` 专项训练接口。当前题目先采用后端内置高质量样题，不要求额外导入题库表。
+
+| 模块 | 接口 | 说明 |
+|------|------|------|
+| 写作任务 | `GET /api/v1/practice/writing/task?userId=&type=small|large` | 小作文/大作文搭建训练 |
+| 写作教练 | `POST /api/v1/practice/writing/coach` | 结构选项 + 大白话想法 -> AI 纠偏 |
+| 翻译任务 | `GET /api/v1/practice/translation/task?userId=` | 获取长难句拆解训练 |
+| 翻译教练 | `POST /api/v1/practice/translation/coach` | 主干/修饰/译文三步反馈 |
+| 完形任务 | `GET /api/v1/practice/cloze/task?userId=` | 获取单空完形训练 |
+| 完形教练 | `POST /api/v1/practice/cloze/coach` | 选项 + 理由 -> AI 追问和错因 |
+
+这些教练接口都会消耗 LLM token，并已经接入后端防频：
+
+- 写作：`writing-coach`
+- 翻译：`translation-coach`
+- 完形：`cloze-coach`
+
+如果新增接口后前端能打开页面但提交 AI 反馈失败，优先检查：
+
+- 后端是否已重启到包含 `PracticeController` 的最新代码
+- `DEEPSEEK_API_KEY` 是否在当前后端进程里生效
+- 后端日志 `logs/info.log` 里对应 `[写作专项] / [翻译专项] / [完形专项]` 日志
 
 ### 运行时覆盖
 
@@ -235,6 +262,21 @@ VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 - `VITE_API_ALLOW_OVERRIDE=false`
 - 如果小程序本地缓存里残留了旧的 `apiBaseUrlOverride`，启动时会自动清掉
 - 只有显式把 `VITE_API_ALLOW_OVERRIDE=true` 打开时，运行时覆盖地址才会生效
+
+---
+
+## 4. 官网静态页
+
+备案审查用官网静态页位于：
+
+- `website/index.html`
+- `website/styles.css`
+
+当前官网定位文案已包含：
+
+- `先暴露思路，再被纠偏，最后沉淀资产。`
+
+官网仅展示产品介绍、功能定位、联系方式和备案状态，不展示后端接口域名，不承载小程序业务功能。
 
 ---
 

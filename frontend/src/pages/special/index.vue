@@ -8,12 +8,12 @@
 
     <view class="section">
       <view class="detail-list">
-        <view class="detail-card" @click="goPage('/pages/writing/index')">
+        <view class="detail-card" @click="goPage('/pages/writing/index?type=small')">
           <text class="detail-title">小作文</text>
           <text class="detail-sub">应用文：书信、通知、邀请、致歉等</text>
           <text class="detail-tip">更适合先做模板、语气和格式训练</text>
         </view>
-        <view class="detail-card" @click="goPage('/pages/writing/index')">
+        <view class="detail-card" @click="goPage('/pages/writing/index?type=large')">
           <text class="detail-title">大作文</text>
           <text class="detail-sub">{{ examType === 'english-2' ? '英语二：图表作文' : '英语一：图画作文' }}</text>
           <text class="detail-tip">更适合练观点展开、例证和收束能力</text>

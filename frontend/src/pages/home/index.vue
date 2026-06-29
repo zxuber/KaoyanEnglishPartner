@@ -81,36 +81,12 @@
       <view class="section">
         <view class="section-head">
           <text class="sec-title">工具与检测</text>
-          <text class="sec-sub">复盘资产和阶段检测放在主训练流之外，但随时可进</text>
+          <text class="sec-sub">阶段性检查先放这里，复盘与诊断归到英教系统</text>
         </view>
         <view class="tool-list">
-          <view class="tool-card" @click="switchTabPage('/pages/mistake/index')">
-            <text class="tool-title">误解本</text>
-            <text class="tool-sub">单词、短句、写作表达、固定搭配、易混词</text>
-          </view>
-          <view class="tool-card accent" @click="switchTabPage('/pages/tutor/index')">
-            <text class="tool-title">高级智能英语教练系统</text>
-            <text class="tool-sub">今日诊断、提分方案、主题词库、专项纠偏</text>
-          </view>
           <view class="tool-card" @click="goPage('/pages/exam/index')">
             <text class="tool-title">模考</text>
             <text class="tool-sub">阶段性套卷检查，后续可承接正式模考链路</text>
-          </view>
-        </view>
-      </view>
-
-      <view class="section">
-        <view class="section-head">
-          <text class="sec-title">最近复盘</text>
-          <text class="sec-sub">不只看做了多少，也看最近最容易掉队在哪</text>
-        </view>
-        <view class="review-card">
-          <view v-for="item in dashboard.reviewItems" :key="item.label" class="review-line">
-            <view>
-              <text class="review-label">{{ item.label }}</text>
-              <text class="review-hint">{{ item.hint }}</text>
-            </view>
-            <text class="review-value">{{ item.value }}</text>
           </view>
         </view>
       </view>
@@ -141,7 +117,6 @@ interface DashboardData {
     progressTotal?: number;
   };
   todayTasks?: Array<{ title: string; subtitle: string; reason: string; page: string; badge: string; accent?: string }>;
-  reviewItems?: Array<{ label: string; value: string; hint: string }>;
   stats?: { masteredWords?: number; totalCheckins?: number; targetScore?: number };
 }
 
@@ -157,8 +132,6 @@ const specialEntries = [
   { title: '完形填空', subtitle: '逻辑、搭配、上下文判断', page: '/pages/cloze/index', skin: 'cloze' },
   { title: '新题型', subtitle: '排序题、7选五、小标题等', page: '/pages/new-question/index', skin: 'new-question', wide: true },
 ];
-
-const tabPages = new Set(['/pages/home/index', '/pages/mistake/index', '/pages/tutor/index']);
 
 const continuePercent = computed(() => {
   const current = dashboard.value.continueTraining?.progressCurrent || 0;
@@ -245,15 +218,7 @@ onShow(async () => {
 });
 
 function goPage(url: string) {
-  if (tabPages.has(url)) {
-    uni.switchTab({ url });
-    return;
-  }
   uni.navigateTo({ url });
-}
-
-function switchTabPage(url: string) {
-  uni.switchTab({ url });
 }
 
 function goOnboarding() { uni.navigateTo({ url: '/pages/onboarding/index?review=1' }); }
@@ -285,7 +250,7 @@ async function doCheckin() {
 .h1 { display: block; font-size: 56rpx; line-height: 1.06; font-weight: 800; color: #18302b; }
 .sub { display: block; margin-top: 14rpx; font-size: 26rpx; line-height: 1.6; color: #5d5a54; }
 .hero-pill { padding: 18rpx 24rpx; border-radius: 999rpx; background: rgba(255,255,255,0.7); backdrop-filter: blur(16rpx); box-shadow: 0 12rpx 30rpx rgba(24,48,43,0.08); color: #18302b; font-size: 24rpx; font-weight: 600; }
-.loading-card,.word-hero-card,.recent-card,.review-card,.special-card,.stat-card,.tool-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(18rpx); box-shadow: 0 20rpx 40rpx rgba(31, 41, 35, 0.07); border: 1rpx solid rgba(255,255,255,0.55); }
+.loading-card,.word-hero-card,.recent-card,.special-card,.stat-card,.tool-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(18rpx); box-shadow: 0 20rpx 40rpx rgba(31, 41, 35, 0.07); border: 1rpx solid rgba(255,255,255,0.55); }
 .loading-card { padding: 40rpx; border-radius: 28rpx; color: #5d5a54; text-align: center; }
 .word-hero-card { padding: 34rpx; border-radius: 34rpx; margin-bottom: 18rpx; background:
   radial-gradient(circle at top right, rgba(236, 201, 75, 0.28), transparent 34%),
@@ -331,14 +296,7 @@ async function doCheckin() {
 .special-reason { display: block; margin-top: 12rpx; font-size: 20rpx; color: #8c816f; line-height: 1.45; }
 .tool-list { display:flex; flex-direction:column; gap:14rpx; }
 .tool-card { padding:24rpx; border-radius:24rpx; }
-.tool-card.accent { background: linear-gradient(135deg, #fff1f6 0%, #fffaf9 100%); }
 .tool-title { display:block; font-size:30rpx; font-weight:700; color:#1f2c28; }
 .tool-sub { display:block; margin-top:10rpx; font-size:22rpx; line-height:1.55; color:#7a7166; }
-.review-card { padding: 10rpx 24rpx; border-radius: 28rpx; }
-.review-line { display: flex; justify-content: space-between; gap: 18rpx; padding: 22rpx 0; border-bottom: 1rpx solid rgba(31,44,40,0.08); }
-.review-line:last-child { border-bottom: 0; }
-.review-label { display: block; font-size: 26rpx; font-weight: 600; color: #1f2c28; }
-.review-hint { display: block; margin-top: 6rpx; font-size: 22rpx; line-height: 1.45; color: #887f74; max-width: 430rpx; }
-.review-value { flex-shrink: 0; font-size: 24rpx; font-weight: 700; color: #18302b; text-align: right; }
 .footer-action { margin-top: 10rpx; text-align: center; color: #6f675b; font-size: 24rpx; padding: 26rpx 0; }
 </style>

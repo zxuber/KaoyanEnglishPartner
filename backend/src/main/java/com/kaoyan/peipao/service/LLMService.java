@@ -148,6 +148,129 @@ public class LLMService {
         }
     }
 
+    public String generateWritingCoachReply(
+            String promptText,
+            String writingType,
+            String selectedStructure,
+            String userAnswer,
+            int turn
+    ) {
+        String prompt = """
+                你是一个考研英语写作教练。这个产品的目标是解决用户“不会开头、不会展开、不会结尾”。
+
+                【作文类型】
+                %s
+
+                【题目】
+                %s
+
+                【用户选择的结构方向】
+                %s
+
+                【用户用大白话补充的想法】
+                %s
+
+                【当前轮次】
+                第 %d 轮
+
+                输出要求：
+                1. 先判断用户审题和结构方向是否靠谱。
+                2. 如果方向不稳，明确指出偏在哪里。
+                3. 把用户的大白话改造成 1-2 句更适合考研作文的中文表达思路。
+                4. 最后只追问一个问题，引导用户继续补充展开。
+                5. 不要写完整作文，不要输出 JSON。
+                """.formatted(writingType, promptText, selectedStructure, userAnswer, turn);
+
+        try {
+            return callDeepSeekText(prompt, "你是一个考研英语写作教练。用中文输出简洁、具体、可执行的纠偏反馈。");
+        } catch (Exception e) {
+            log.warn("[大模型] 写作教练降级: {}", e.getMessage());
+            return "你的方向可以先保留，但还需要把“为什么这样写”说具体。先用最直白的话补一句：你第二段最想解决对方的哪个具体问题？";
+        }
+    }
+
+    public String generateTranslationCoachReply(
+            String sentence,
+            String mainStructure,
+            String modifiers,
+            String translation,
+            int step
+    ) {
+        String prompt = """
+                你是一个考研英语翻译教练。请按“找主干 -> 拆修饰 -> 顺中文”的训练法纠偏。
+
+                【原句】
+                %s
+
+                【用户主干判断】
+                %s
+
+                【用户修饰成分判断】
+                %s
+
+                【用户整句翻译】
+                %s
+
+                【当前步骤】
+                第 %d 步
+
+                输出要求：
+                1. 不要一上来给标准译文。
+                2. 先指出主干或修饰成分里最关键的一个问题。
+                3. 给用户下一步应该怎么改。
+                4. 如果已经到第 3 步，可以评价译文是否顺中文。
+                5. 只输出中文纯文本。
+                """.formatted(sentence, mainStructure, modifiers, translation, step);
+
+        try {
+            return callDeepSeekText(prompt, "你是一个考研英语翻译教练。用中文输出短反馈和下一步动作。");
+        } catch (Exception e) {
+            log.warn("[大模型] 翻译教练降级: {}", e.getMessage());
+            return "先抓主句：it often prevents students from developing the patience。不要先翻 although 部分，主干稳了再处理让步信息。";
+        }
+    }
+
+    public String generateClozeCoachReply(
+            String passage,
+            String stem,
+            String selectedOption,
+            String reasoning,
+            int turn
+    ) {
+        String prompt = """
+                你是一个考研英语完形填空教练。你的任务是训练用户说出选择依据，而不是只判断对错。
+
+                【上下文】
+                %s
+
+                【题干】
+                %s
+
+                【用户选择】
+                %s
+
+                【用户理由】
+                %s
+
+                【当前轮次】
+                第 %d 轮
+
+                输出要求：
+                1. 先判断用户理由属于语义、搭配、逻辑还是猜测。
+                2. 指出最关键的上下文线索。
+                3. 不要在第 1 轮直接公布正确答案。
+                4. 只追问一个能帮助排除干扰项的问题。
+                5. 只输出中文纯文本。
+                """.formatted(passage, stem, selectedOption, reasoning, turn);
+
+        try {
+            return callDeepSeekText(prompt, "你是一个考研英语完形教练。用中文输出简短纠偏和追问。");
+        } catch (Exception e) {
+            log.warn("[大模型] 完形教练降级: {}", e.getMessage());
+            return "先看空格后的 broader public understanding，这里需要一个能接抽象名词、表示“有助于”的搭配。你再说说为什么其他三个不合适？";
+        }
+    }
+
     private String buildPrompt(Map<String, Object> p) {
         String tpl = "你是考研英语辅导专家。请根据以下用户信息，生成一份专属学习方案。\n\n"
                 + "【用户信息】\n"
