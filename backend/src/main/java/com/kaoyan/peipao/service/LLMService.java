@@ -174,18 +174,55 @@ public class LLMService {
                 第 %d 轮
 
                 输出要求：
-                1. 先判断用户审题和结构方向是否靠谱。
-                2. 如果方向不稳，明确指出偏在哪里。
-                3. 把用户的大白话改造成 1-2 句更适合考研作文的中文表达思路。
-                4. 最后只追问一个问题，引导用户继续补充展开。
-                5. 不要写完整作文，不要输出 JSON。
+                1. 先分析用户选择的开头起笔、中间展开、结尾收束方向是否合理，明确指出有无偏差。
+                2. 再判断用户补充内容属于“真实作文思路”还是“求助/焦虑/发牢骚”。
+                3. 如果用户是在求助，比如不会起笔、不会分段、词汇量不足，先鼓励并降低任务难度，告诉他下一步只需要在框架空白处写短语或1-3句。
+                4. 如果用户确实在围绕题目表达思路，则分析是否贴题、是否具体、逻辑是否顺。
+                5. 不要写完整作文，不要输出 JSON，不要继续假装用户已经完成了作文思路。
                 """.formatted(writingType, promptText, selectedStructure, userAnswer, turn);
 
         try {
             return callDeepSeekText(prompt, "你是一个考研英语写作教练。用中文输出简洁、具体、可执行的纠偏反馈。");
         } catch (Exception e) {
             log.warn("[大模型] 写作教练降级: {}", e.getMessage());
-            return "你的方向可以先保留，但还需要把“为什么这样写”说具体。先用最直白的话补一句：你第二段最想解决对方的哪个具体问题？";
+            return "你的方向可以先保留。你现在暴露出的主要问题不是审题错误，而是写作启动困难：不知道如何起笔、如何分段、如何用更合适的表达。这个很正常，下一步先不用写整篇，只在框架空白里写短语或1-3句，我会再帮你改成更考试化的表达。";
+        }
+    }
+
+    public String generateWritingFrameReview(
+            String promptText,
+            String writingType,
+            String selectedStructure,
+            String filledText
+    ) {
+        String prompt = """
+                你是一个考研英语写作批改教练。用户没有写完整作文，而是在高质量半填空框架里完成了局部自由写作。
+
+                【作文类型】
+                %s
+
+                【题目】
+                %s
+
+                【用户此前选择的结构方向】
+                %s
+
+                【用户填写的框架空白】
+                %s
+
+                输出要求：
+                1. 先整体判断用户填写内容是否贴题，是否能支撑这篇作文。
+                2. 逐条指出最明显的问题：语法、表达中式、逻辑空泛、内容不具体，最多 3 条。
+                3. 给出对应的考试化改写。改写要自然、有考研作文质感，但不要堆砌生僻词。
+                4. 提取 2 个值得沉淀的短语或句型，并说明可用于什么场景。
+                5. 用中文反馈；英文改写可以直接写英文句子；不要输出 JSON。
+                """.formatted(writingType, promptText, selectedStructure, filledText);
+
+        try {
+            return callDeepSeekText(prompt, "你是一个严格但鼓励型的考研英语写作批改教练。重点批改用户填入框架的局部表达。");
+        } catch (Exception e) {
+            log.warn("[大模型] 写作框架批改降级: {}", e.getMessage());
+            return "这次你已经完成了关键位置的表达训练。先检查三点：是否贴题、是否具体、是否有明确动作。建议把空泛表达改成更具体的动作，比如把“read more”升级为“practice locating key information before checking the options”。";
         }
     }
 

@@ -44,6 +44,12 @@
       }
     },
     {
+      "path": "pages/training-archive/index",
+      "style": {
+        "navigationBarTitleText": "训练档案"
+      }
+    },
+    {
       "path": "pages/mistake/index",
       "style": {
         "navigationBarTitleText": "误解本"

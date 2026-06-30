@@ -224,8 +224,8 @@ VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 
 | 模块 | 接口 | 说明 |
 |------|------|------|
-| 写作任务 | `GET /api/v1/practice/writing/task?userId=&type=small|large` | 小作文/大作文搭建训练 |
-| 写作教练 | `POST /api/v1/practice/writing/coach` | 结构选项 + 大白话想法 -> AI 纠偏 |
+| 写作任务 | `GET /api/v1/practice/writing/task?userId=&type=small|large` | 小作文/大作文搭建训练；当前目标为方向选择 + 高质量框架 + 局部自由写作 |
+| 写作教练 | `POST /api/v1/practice/writing/coach` | `step=1` 分析方向并返回高质量框架；`step=2` 批改用户逐空填写的局部内容 |
 | 翻译任务 | `GET /api/v1/practice/translation/task?userId=` | 获取长难句拆解训练 |
 | 翻译教练 | `POST /api/v1/practice/translation/coach` | 主干/修饰/译文三步反馈 |
 | 完形任务 | `GET /api/v1/practice/cloze/task?userId=` | 获取单空完形训练 |
@@ -242,6 +242,13 @@ VITE_API_BASE_URL_TUNNEL=https://api.peipaoenglish.cn/api/v1
 - 后端是否已重启到包含 `PracticeController` 的最新代码
 - `DEEPSEEK_API_KEY` 是否在当前后端进程里生效
 - 后端日志 `logs/info.log` 里对应 `[写作专项] / [翻译专项] / [完形专项]` 日志
+
+写作专项后续实现注意：
+
+- 前端采用卡片式 Step Flow，同页分步不跳页：逐题选方向、单独说想法、逐空填框架、最后看批改
+- 半填空框架不是低幼填词模板，必须保证考研作文可用的表达质量
+- 空白处允许用户自由写短语、句子或 1-3 句
+- AI 反馈必须先处理用户真实输入类型；用户表达“不会写、词汇量不够、不会分段”时，应先给可执行降级路径，而不是继续按正常作文思路追问
 
 ### 运行时覆盖
 

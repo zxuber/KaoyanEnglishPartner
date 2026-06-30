@@ -19,6 +19,8 @@ public class PracticeCoachResponse {
 
     private String explanation;
 
+    private WritingFrame writingFrame;
+
     private List<AssetCandidate> assetCandidates;
 
     @Data
@@ -28,5 +30,24 @@ public class PracticeCoachResponse {
         private String sourceText;
         private String translation;
         private String sourceModule;
+    }
+
+    @Data
+    @Builder
+    public static class WritingFrame {
+        private String title;
+        private String instruction;
+        private List<FrameLine> lines;
+    }
+
+    @Data
+    @Builder
+    public static class FrameLine {
+        private String id;
+        private String beforeText;
+        private String afterText;
+        private String label;
+        private String placeholder;
+        private Integer maxLength;
     }
 }

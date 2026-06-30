@@ -34,6 +34,7 @@ public class ReadingService {
     private final LLMService llmService;
     private final TranslationService translationService;
     private final TokenActionGuardService tokenActionGuardService;
+    private final PracticeArchiveService practiceArchiveService;
 
     private static final int WORD_TRANSLATION_LIMIT = 5;
     private static final int SENTENCE_TRANSLATION_LIMIT = 3;
@@ -104,6 +105,17 @@ public class ReadingService {
         record.setTurn(turn);
         record.setRevealAnswer(reveal ? 1 : 0);
         readingRecordMapper.insert(record);
+        practiceArchiveService.recordTraining(
+                userId,
+                "reading",
+                article.getArticleKey() + "-" + question.getId(),
+                article.getTitle() + " · 第" + question.getQuestionNo() + "题",
+                question.getStem(),
+                selectedOption,
+                userAnswer,
+                coachReply,
+                reveal
+        );
         log.info("[阅读教练] saved record userId={}, articleDbId={}, questionDbId={}, recordId={}, revealAnswer={}",
                 userId, article.getId(), question.getId(), record.getId(), reveal);
 

@@ -88,6 +88,10 @@
             <text class="tool-title">模考</text>
             <text class="tool-sub">阶段性套卷检查，后续可承接正式模考链路</text>
           </view>
+          <view class="tool-card archive" @click="goPage('/pages/training-archive/index')">
+            <text class="tool-title">训练档案</text>
+            <text class="tool-sub">这都是你来时的路</text>
+          </view>
         </view>
       </view>
 
@@ -296,6 +300,7 @@ async function doCheckin() {
 .special-reason { display: block; margin-top: 12rpx; font-size: 20rpx; color: #8c816f; line-height: 1.45; }
 .tool-list { display:flex; flex-direction:column; gap:14rpx; }
 .tool-card { padding:24rpx; border-radius:24rpx; }
+.tool-card.archive { background: linear-gradient(135deg, #edf7ef 0%, #fffdf7 100%); border-color: rgba(31, 111, 91, 0.14); }
 .tool-title { display:block; font-size:30rpx; font-weight:700; color:#1f2c28; }
 .tool-sub { display:block; margin-top:10rpx; font-size:22rpx; line-height:1.55; color:#7a7166; }
 .footer-action { margin-top: 10rpx; text-align: center; color: #6f675b; font-size: 24rpx; padding: 26rpx 0; }

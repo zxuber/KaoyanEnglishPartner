@@ -140,6 +140,27 @@ public class DatabaseBootstrapService implements ApplicationRunner {
                   UNIQUE KEY uk_mistake_asset_progress_user_asset (user_id, asset_id),
                   KEY idx_mistake_asset_progress_user_status (user_id, status)
                 )
+                """,
+                """
+                CREATE TABLE IF NOT EXISTS practice_record (
+                  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                  user_id BIGINT NOT NULL,
+                  module VARCHAR(32) NOT NULL,
+                  question_key VARCHAR(96) NOT NULL,
+                  title VARCHAR(255) NOT NULL,
+                  summary VARCHAR(800) DEFAULT '',
+                  selected_option VARCHAR(255) DEFAULT '',
+                  user_answer TEXT NULL,
+                  coach_reply TEXT NULL,
+                  completed TINYINT DEFAULT 0,
+                  important TINYINT DEFAULT 0,
+                  trained_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                  UNIQUE KEY uk_practice_record_user_question (user_id, module, question_key),
+                  KEY idx_practice_record_user_module (user_id, module, trained_at),
+                  KEY idx_practice_record_important (module, important)
+                )
                 """
         );
         ddlList.forEach(jdbcTemplate::execute);

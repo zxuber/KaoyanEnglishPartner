@@ -29,7 +29,17 @@ public class PracticeCoachRequest {
 
     private String translation;
 
+    private List<WritingFrameAnswer> writingFrameAnswers;
+
     private Integer step;
 
     private Integer turn;
+
+    @Data
+    public static class WritingFrameAnswer {
+        private String slotId;
+        private String label;
+        private String prompt;
+        private String answer;
+    }
 }
